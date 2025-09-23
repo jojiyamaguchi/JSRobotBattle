@@ -187,6 +187,7 @@ let shields = []; // シールドの配列
 let shieldHits = []; // シールドヒットエフェクトの配列
 let ripples = []; // 波紋の配列
 let decoys = []; // Decoy array
+let endMessageShown = false;
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -213,6 +214,7 @@ function initializeGame() {
   ripples = [];
   decoys = []; // Initialize decoys
   gameTime = 0;
+  endMessageShown = false;
 }
 
 async function loadPlayers() {
@@ -530,11 +532,17 @@ function updateGame() {
   const teamAAlive = players.slice(0, 3).filter(p => p !== null).length > 0;
   const teamBAlive = players.slice(3, 6).filter(p => p !== null).length > 0;
   if (!teamAAlive && !teamBAlive) {
-    gameRunning = false;
-    alert("Draw!");
+    //gameRunning = false;
+    if(!endMessageShown) {
+      endMessageShown = true;
+      alert("Draw!");
+    }
   }else if (!teamAAlive || !teamBAlive) {
-    gameRunning = false;
-    alert(teamAAlive ? "Team A wins!" : "Team B wins!");
+    // gameRunning = false;
+    if(!endMessageShown) {
+      endMessageShown = true;
+      alert(teamAAlive ? "Team A wins!" : "Team B wins!");
+    }
   }
 
   gameTime++;
