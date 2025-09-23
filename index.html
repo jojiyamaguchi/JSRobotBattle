@@ -160,7 +160,7 @@
   
   <div class="action-block">
     ＜charge＞
-    <br>エネルギーを5ポイントチャージします。
+    <br>エネルギーを2ポイントチャージします。
     <code>
     postMessage({action:{type:"charge"}});
     </code>
@@ -384,7 +384,7 @@ function updateGame() {
           p.energy += energyCost; // Refund energy
         }
       } else if (a.type === "charge") {
-        p.energy = Math.min(p.energy + 4, maxEnergy); // Charge Energy
+        p.energy = Math.min(p.energy + 1, maxEnergy); // Charge Energy
       }
     } 
     
