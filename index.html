@@ -295,7 +295,7 @@ function updateGame() {
         if (dir === undefined) {
           dir = 0;
         }
-        const angleRad = (dir + p.dir) * Math.PI / 180;
+        const angleRad = (dir - p.dir) * Math.PI / 180;
         const dx = speed * Math.cos(angleRad);
         const dy = speed * Math.sin(angleRad);
 
