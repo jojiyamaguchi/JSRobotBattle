@@ -130,7 +130,7 @@
     ＜punch＞
     <br>近距離格闘攻撃します
     <br>&nbsp;&nbsp;消費エネルギー 5
-    <br>&nbsp;&nbsp;ダメージ 50
+    <br>&nbsp;&nbsp;ダメージ 40
     <br>指定可能なパラメーター: なし
     <code>
     postMessage({action:{type:"punch"}});
@@ -448,7 +448,7 @@ function updateGame() {
                     let contactY = player.y + dy / len * robotRadius;
           
                     // シールドがあればダメージを半減
-                    let damage = 50;
+                    let damage = 40;
                     // if (player.shield) {
                     //   damage /= 10;
 
