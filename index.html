@@ -547,8 +547,11 @@ function updateGame() {
 
   gameTime++;
   if (gameTime / 60 > maxGameTime) {
-      gameRunning = false;
+    //gameRunning = false;  
+    if(!endMessageShown) {
+      endMessageShown = true;
       alert("Draw!");
+    }
   }
 
   // Update speech bubble timers
