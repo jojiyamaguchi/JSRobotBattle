@@ -88,7 +88,7 @@
     <robot>
     <br>HP: 1000
     <br>エネルギー上限: 100
-    <br>エネルギーを消費しながら行動します。行動しなかった場合エネルギーを1回復します（エネルギー不足による行動不能も含む）。
+    <br>ロボットはエネルギーを消費しながら行動します。行動した場合もしなかった場合も、常にエネルギーを1回復します。
   </div>
 
   <h3>アクション一覧</h3>
@@ -155,6 +155,14 @@
     <br>&nbsp;&nbsp;color: デコイの色 [省略した場合は自機と同じ色]
     <code>
     postMessage({action:{type:"decoy", color:"orange"}});
+    </code>
+  </div>
+  
+  <div class="action-block">
+    ＜charge＞
+    <br>エネルギーを5ポイントチャージします。
+    <code>
+    postMessage({action:{type:"charge"}});
     </code>
   </div>
 </div>
@@ -270,11 +278,13 @@ function updateGame() {
         energyCost = 10;
     } else if (a.type === "shield") {
         energyCost = 4;
-    } else if (a.type === "speak") {
-        energyCost = 0; // No energy cost for speaking
     } else if (a.type === "decoy") {
         energyCost = 100;
-    }
+    } else if (a.type === "speak") {
+        energyCost = 0; // No energy cost for speaking
+    } else if (a.type === "charge") {
+        energyCost = 0; // No energy cost for charge
+    } 
 
     if (p.energy >= energyCost) {
       p.energy -= energyCost;
@@ -343,7 +353,6 @@ function updateGame() {
         // });
 
       } else if (a.type === "speak") {
-          p.energy = Math.min(p.energy + 1, maxEnergy); // Recover energy
           // Display speech bubble
           p.speech = a.text || "...";
           p.speechTimer = 60; // 1 second (assuming 60 frames per second)
@@ -371,11 +380,12 @@ function updateGame() {
         } else {
           p.energy += energyCost; // Refund energy
         }
+      } else if (a.type === "charge") {
+        p.energy = Math.min(p.energy + 4, maxEnergy); // Charge Energy
       }
-    } else {
-      // Not enough energy, so no action
-      p.energy = Math.min(p.energy + 1, maxEnergy); // Recover energy
-    }
+    } 
+    
+    p.energy = Math.min(p.energy + 1, maxEnergy); // Recover energy
     p.lastAction = null; // Reset last action to prevent repeating
 
   });
