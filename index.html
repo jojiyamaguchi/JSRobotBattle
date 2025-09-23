@@ -151,7 +151,7 @@
   <div class="action-block">
     ＜decoy＞
     <br>デコイ（おとり）を作成します。
-    <br>デコイは行動できませんが、完全に１つの機体として認識されます。生存機体としてもカウントされます。デコイのHPは200です。
+    <br>デコイは行動できませんが、完全に１つの機体として認識されます。生存機体としてもカウントされます。デコイのHPは1です。
     <br>&nbsp;&nbsp;消費エネルギー 60
     <br>指定可能なパラメーター:
     <br>&nbsp;&nbsp;dir: デコイ射出方向 (度) [省略した場合は0度]
@@ -641,7 +641,7 @@ function updateGame() {
           y: decoy.y,
           color: decoy.color,
           dir: decoy.angle,
-          hp: 200,
+          hp: 1,
           energy: 0,
           lastAction: null,
           speech: null,
