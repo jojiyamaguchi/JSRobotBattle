@@ -152,7 +152,7 @@
     ＜decoy＞
     <br>デコイ（おとり）を作成します。
     <br>デコイは行動できませんが、完全に１つの機体として認識されます。生存機体としてもカウントされます。デコイのHPは1です。
-    <br>&nbsp;&nbsp;消費エネルギー 80
+    <br>&nbsp;&nbsp;消費エネルギー 70
     <br>指定可能なパラメーター:
     <br>&nbsp;&nbsp;dir: デコイ射出方向 (度) [省略した場合は0度]
     <br>&nbsp;&nbsp;color: デコイの色 [省略した場合は自機と同じ色]
@@ -286,7 +286,7 @@ function updateGame() {
     } else if (a.type === "shield") {
         energyCost = 4;
     } else if (a.type === "decoy") {
-        energyCost = 80;
+        energyCost = 70;
     } else if (a.type === "speak") {
         energyCost = 0; // No energy cost for speaking
     } else if (a.type === "charge") {
