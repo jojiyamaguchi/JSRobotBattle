@@ -152,6 +152,7 @@
     ＜decoy＞
     <br>デコイ（おとり）を作成します。デコイは行動できませんが、完全に１つの機体として認識されます。生存機体としてもカウントされます。デコイのHPは1です。
     <br>指定可能なパラメーター:
+    <br>&nbsp;&nbsp;dir: デコイ射出方向 (度) [省略した場合は0度]
     <br>&nbsp;&nbsp;color: デコイの色 [省略した場合は自機と同じ色]
     <code>
     postMessage({action:{type:"decoy", color:"orange"}});
@@ -386,7 +387,12 @@ function updateGame() {
           p.shield = { life: 50 };
       } else if (a.type === "decoy") {
         const distance = 30;
-        const angleRad = p.dir * Math.PI / 180;
+        let dir = a.dir;
+        if (dir === undefined) {
+          dir = 0;
+        }
+        const angleDeg = p.dir - dir;
+        const angleRad = angleDeg * Math.PI / 180;
         const decoyX = p.x + distance * Math.cos(angleRad);
         const decoyY = p.y + distance * Math.sin(angleRad);
 
