@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>JavaScript Robot Battle</title>
+<style>
+  #battlefield {
+    border: 1px solid black;
+  }
+  .team-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .team-container input[type='file'] {
+    width: 200px;
+  }
+  .meter {
+    width: 100px;
+    height: 10px;
+    background-color: #ddd;
+    position: relative;
+    overflow: hidden;
+  }
+  .meter span {
+    display: block;
+    height: 100%;
+  }
+  .speech-bubble {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid black;
+    border-radius: 5px;
+    padding: 5px;
+    font-size: 12px;
+    z-index: 10;
+    pointer-events: none; /* Prevent interaction */
+  }
+  /* ▼ ここからアクション説明用 */
+  #action-guide {
+    margin-top: 20px;
+    padding: 15px;
+    border-top: 2px solid #333;
+    font-family: monospace;
+    background-color: #f9f9f9;
+  }
+  #action-guide h3 {
+    margin-bottom: 10px;
+  }
+  .action-block {
+    margin-bottom: 20px;
+  }
+  .action-block code {
+    display: block;
+    background: #eee;
+    padding: 5px;
+    margin-top: 5px;
+  }
+</style>
+</head>
+<body>
+
+<h1>JavaScript Robot Battle</h1>
+
+<div class="team-container">
+  <div>
+    <h2>Team A (Orange)</h2>
+    <input type="file" id="teamA_robot1" accept=".js">
+    <input type="file" id="teamA_robot2" accept=".js">
+    <input type="file" id="teamA_robot3" accept=".js">
+  </div>
+</div>
+
+<div class="team-container">
+  <div>
+    <h2>Team B (Green)</h2>
+    <input type="file" id="teamB_robot1" accept=".js">
+    <input type="file" id="teamB_robot2" accept=".js">
+    <input type="file" id="teamB_robot3" accept=".js">
+  </div>
+</div>
+
+<button id="startButton">Start Game</button>
+
+<canvas id="battlefield" width="400" height="400"></canvas>
+<div id="action-guide">
+  <h3>ロボット説明</h3>
+  <div class="action-block">
+    <robot>
+    <br>HP: 1000
+    <br>エネルギー上限: 100
+    <br>エネルギーを消費しながら行動します。行動しなかった場合エネルギーを1回復します（エネルギー不足による行動不能も含む）。
+  </div>
+
+  <h3>アクション一覧</h3>
+
+  <div class="action-block">
+    ＜move＞
+    <br>ロボットを移動させます
+    <br>&nbsp;&nbsp;消費エネルギー 2
+    <br>指定可能なパラメーター:
+    <br>&nbsp;&nbsp;dir: 方向 (度) [省略した場合は0度]
+    <code>
+    postMessage({action:{type:"move", dir:90}});
+    </code>
+  </div>
+
+  <div class="action-block">
+    ＜turn＞
+    <br>向きを変更します (-45〜45度)
+    <br>&nbsp;&nbsp;消費エネルギー 2
+    <br>指定可能なパラメーター:
+    <br>&nbsp;&nbsp;dir: 回転角度 (度) [省略した場合は45度]
+    <code>
+    postMessage({action:{type:"turn", dir:30}});
+    </code>
+  </div>
+
+  <div class="action-block">
+    ＜fire＞
+    <br>エネルギー弾を発射します
+    <br>&nbsp;&nbsp;消費エネルギー 40
+    <br>&nbsp;&nbsp;ダメージ 100
+    <br>指定可能なパラメーター: なし
+    <code>
+    postMessage({action:{type:"fire"}});
+    </code>
+  </div>
+
+  <div class="action-block">
+    ＜punch＞
+    <br>近距離格闘攻撃します
+    <br>&nbsp;&nbsp;消費エネルギー10
+    <br>&nbsp;&nbsp;ダメージ 10×5フレーム
+    <br>指定可能なパラメーター: なし
+    <code>
+    postMessage({action:{type:"punch"}});
+    </code>
+  </div>
+
+  <div class="action-block">
+    ＜shield＞
+    <br>シールドを展開しダメージを軽減します
+    <br>シールドは銃弾によるダメージを1/10に軽減します。格闘によるダメージは軽減できません。
+    <br>&nbsp;&nbsp;消費エネルギー4
+    <br>指定可能なパラメーター: なし
+    <code>
+    postMessage({action:{type:"shield"}});
+    </code>
+  </div>
+
+  <div class="action-block">
+    ＜decoy＞
+    <br>デコイ（おとり）を作成します。デコイは行動できませんが、完全に１つの機体として認識されます。生存機体としてもカウントされます。デコイのHPは1です。
+    <br>指定可能なパラメーター:
+    <br>&nbsp;&nbsp;color: デコイの色 [省略した場合は自機と同じ色]
+    <code>
+    postMessage({action:{type:"decoy", color:"orange"}});
+    </code>
+  </div>
+</div>
+
+<script>
+let players = [];
+let workers = [];
+let bullets = [];
+let gameRunning = false;
+let ctx;
+const maxEnergy = 100;
+const maxHP = 2000;
+const robotRadius = 10; // ロボットの半径
+let sparks = []; // 火花エフェクトの配列
+let explosions = []; // 爆発エフェクトの配列
+let gameTime = 0;
+let maxGameTime = 180; // 180 seconds
+let punches = []; // punchの配列
+let sleepTime = 10; // sleep time in ms
+let speechBubbles = []; // Speech bubble array
+let shields = []; // シールドの配列
+let shieldHits = []; // シールドヒットエフェクトの配列
+let ripples = []; // 波紋の配列
+let decoys = []; // Decoy array
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function initializeGame() {
+  players = [
+    {file: null, x: 50, y: 100, color: "orange", dir: 0, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
+    {file: null, x: 50, y: 200, color: "orange", dir: 0, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
+    {file: null, x: 50, y: 300, color: "orange", dir: 0, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
+    {file: null, x: 350, y: 100, color: "green", dir: 180, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
+    {file: null, x: 350, y: 200, color: "green", dir: 180, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
+    {file: null, x: 350, y: 300, color: "green", dir: 180, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
+  ];
+  workers = [];
+  bullets = [];
+  gameRunning = false;
+  sparks = []; // 初期化
+  explosions = []; // 初期化
+  punches = []; // 初期化
+  speechBubbles = []; // Initialize speech bubbles
+  shields = []; // Initialize shields
+  shieldHits = []; // Initialize shield hits
+  ripples = [];
+  decoys = []; // Initialize decoys
+  gameTime = 0;
+}
+
+async function loadPlayers() {
+  const files = [
+    document.getElementById("teamA_robot1").files[0],
+    document.getElementById("teamA_robot2").files[0],
+    document.getElementById("teamA_robot3").files[0],
+    document.getElementById("teamB_robot1").files[0],
+    document.getElementById("teamB_robot2").files[0],
+    document.getElementById("teamB_robot3").files[0],
+  ];
+
+  workers = [];
+
+  for (let i = 0; i < players.length; i++) {
+    players[i].file = files[i];
+    if (files[i]) {
+      const code = await files[i].text();
+      const blob = new Blob([code], {type: "application/javascript"});
+      const worker = new Worker(URL.createObjectURL(blob));
+      worker.onmessage = (e) => {
+        const { action } = e.data;
+        players[i].lastAction = action;
+      };
+      workers.push(worker);
+    } else {
+      workers.push(null); // Keep workers array aligned with players.
+    }
+  }
+}
+
+// ロボット同士の衝突をチェックする関数
+function checkRobotCollision(x, y, currentPlayerIndex) {
+    let collision = false;
+    for (let i = 0; i < players.length; i++) {
+        if (i === currentPlayerIndex || !players[i]) continue; // Skip current robot
+        const dx = x - players[i].x;
+        const dy = y - players[i].y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < 2 * robotRadius) {
+            collision = true; // 衝突あり
+        }
+    }
+    return collision;
+}
+
+function updateGame() {
+  if (!gameRunning) return;
+
+  players.forEach((p, i) => {
+    if (!p || !p.lastAction || !workers[i]) return;
+    const a = p.lastAction;
+
+    let energyCost = 0;
+
+    if (a.type === "move") {
+      energyCost = 2;
+    } else if (a.type === "turn") {
+        energyCost = 2;
+    } else if (a.type === "fire") {
+      energyCost = 40;
+    } else if (a.type === "punch") {
+        energyCost = 10;
+    } else if (a.type === "shield") {
+        energyCost = 4;
+    } else if (a.type === "speak") {
+        energyCost = 0; // No energy cost for speaking
+    } else if (a.type === "decoy") {
+        energyCost = 100;
+    }
+
+    if (p.energy >= energyCost) {
+      p.energy -= energyCost;
+
+      if (a.type === "move") {
+        const speed = 1;
+        let dir = a.dir;
+        if (dir === undefined) {
+          dir = 0;
+        }
+        const angleRad = (dir + p.dir) * Math.PI / 180;
+        const dx = speed * Math.cos(angleRad);
+        const dy = speed * Math.sin(angleRad);
+
+        let newX = p.x + dx;
+        let newY = p.y + dy;
+
+        // Boundaries check
+        if (newX < 0) newX = 0;
+        if (newX > 400) newX = 400;
+        if (newY < 0) newY = 0;
+        if (newY > 400) newY = 400;
+
+        // 他のロボットとの衝突チェック
+        if (!checkRobotCollision(newX, newY, i)) {
+            p.x = newX;
+            p.y = newY;
+        } else {
+            p.energy += energyCost; // 移動失敗、エネルギーを戻す
+        }
+
+      } else if (a.type === "fire") {
+        const bulletSpeed = 5;
+        const angleRad = p.dir * Math.PI / 180;
+        const vx = bulletSpeed * Math.cos(angleRad);
+        const vy = bulletSpeed * Math.sin(angleRad);
+        bullets.push({x: p.x + robotRadius * Math.cos(angleRad), y: p.y + robotRadius * Math.sin(angleRad), vx: vx, vy: vy, color: p.color});
+      } else if (a.type === "turn") {
+          let angle = a.dir || 45; // デフォルトで45度回転
+          angle = Math.max(-45, Math.min(45, angle)); // 角度を-45から45の範囲に制限
+          p.dir += angle;
+          p.dir = (p.dir + 360) % 360; // 角度を0-360の範囲に保つ
+      } else if (a.type === "punch") {  
+        const punchSize = robotRadius / 2;
+        const angleRad = p.dir * Math.PI / 180;
+        const punchX = p.x + (robotRadius + (punchSize / 2)) * Math.cos(angleRad);
+        const punchY = p.y + (robotRadius + (punchSize / 2)) * Math.sin(angleRad);
+
+        punches.push({
+          x: punchX,
+          y: punchY,
+          color: p.color,
+          size: punchSize,
+          dir: p.dir,
+          life: 5,
+          source: i, // punchを実行したロボットのindex
+        });
+
+        // // パンチの波紋
+        // ripples.push({
+        //     x: punchX,
+        //     y: punchY,
+        //     color: 'rgba(173, 255, 173,0.5)',
+        //     size: 10,
+        //     life: 10
+        // });
+
+      } else if (a.type === "speak") {
+          p.energy = Math.min(p.energy + 1, maxEnergy); // Recover energy
+          // Display speech bubble
+          p.speech = a.text || "...";
+          p.speechTimer = 60; // 1 second (assuming 60 frames per second)
+      } else if (a.type === "shield") {
+          p.shield = { life: 50 };
+      } else if (a.type === "decoy") {
+        const distance = 30;
+        const angleRad = p.dir * Math.PI / 180;
+        const decoyX = p.x + distance * Math.cos(angleRad);
+        const decoyY = p.y + distance * Math.sin(angleRad);
+
+        if (decoyX >= 0 && decoyX <= 400 && decoyY >= 0 && decoyY <= 400) {
+          const decoyColor = a.color || p.color;
+          decoys.push({
+            x: decoyX,
+            y: decoyY,
+            color: decoyColor,
+            size: 1,
+            angle: 0,
+            growthRate: robotRadius / 60,
+            rotationSpeed: 360 / 60,
+            creatorIndex: i,
+            createdFrame: gameTime
+          });
+        } else {
+          p.energy += energyCost; // Refund energy
+        }
+      }
+    } else {
+      // Not enough energy, so no action
+      p.energy = Math.min(p.energy + 1, maxEnergy); // Recover energy
+    }
+    p.lastAction = null; // Reset last action to prevent repeating
+
+  });
+
+  bullets.forEach(b => {
+    b.x += b.vx;
+    b.y += b.vy;
+  });
+  bullets = bullets.filter(b => b.x >= 0 && b.x <= 400 && b.y >= 0 && b.y <= 400);
+
+    // Punchの当たり判定とダメージ処理
+    punches.forEach(punch => {
+        players.forEach((player, i) => {
+            if (i !== punch.source && player) { // punchの本人以外
+                const dx = player.x - punch.x;
+                const dy = player.y - punch.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < punch.size + robotRadius) {
+                    
+                    // 衝突点を計算
+                    let dx = punch.x - player.x;
+                    let dy = punch.y - player.y;
+                    let len = Math.sqrt(dx*dx + dy*dy) || 1;
+                    let contactX = player.x + dx / len * robotRadius;
+                    let contactY = player.y + dy / len * robotRadius;
+          
+                    // シールドがあればダメージを半減
+                    let damage = 10;
+                    // if (player.shield) {
+                    //   damage /= 10;
+
+                    //   // シールドに当たったエフェクト
+                    //   shieldHits.push({
+                    //     x: contactX,
+                    //     y: contactY,
+                    //     size: 10,
+                    //     life: 10
+                    //   });
+                    // }
+                    player.hp -= damage;
+
+                    // 火花エフェクト
+                    if (!player.shield) {
+                      // 衝突点を中心に火花を発生させる
+                      for (let k = 0; k < 5; k++) {
+                        sparks.push({
+                          x: contactX,
+                          y: contactY,
+                          vx: (Math.random() - 0.5) * 3, // x方向の速度
+                          vy: (Math.random() - 0.5) * 3, // y方向の速度
+                          size: Math.random() * 2 + 1, // サイズ
+                          color: 'rgba(255, 200, 0, 0.8)' // 色
+                        });
+                      }
+                    }
+                    
+                }
+            }
+        });
+    });
+  // 最後にパンチ寿命更新
+  punches = punches.filter(p => --p.life > 0);
+
+  // Collision detection
+  for (let i = 0; i < players.length; i++) {
+    if (!players[i]) continue; // Skip if robot is destroyed
+    for (let j = 0; j < bullets.length; j++) {
+      if (
+          Math.abs(players[i].x - bullets[j].x) < 10 &&
+          Math.abs(players[i].y - bullets[j].y) < 10) {
+
+        // シールドがあればダメージを半減
+        let damage = 100;
+        if (players[i].shield) {
+            damage /= 10;
+
+            // シールドに当たったエフェクト
+            shieldHits.push({
+                x: bullets[j].x,
+                y: bullets[j].y,
+                size: 10,
+                life: 10
+            });
+        }
+        players[i].hp -= damage;
+
+         // 火花エフェクト
+        if (!players[i].shield) {
+            for (let k = 0; k < 5; k++) {
+                sparks.push({
+                    x: bullets[j].x,
+                    y: bullets[j].y,
+                    vx: (Math.random() - 0.5) * 3, // x方向の速度
+                    vy: (Math.random() - 0.5) * 3, // y方向の速度
+                    size: Math.random() * 2 + 1, // サイズ
+                    color: 'rgba(255, 200, 0, 0.8)' // 色
+                });
+            }
+        }
+
+        bullets.splice(j, 1); // Remove bullet
+        j--; // Adjust index after removing
+
+      }
+    }
+  }
+
+   // 火花と爆発の更新
+    sparks.forEach(spark => {
+        spark.x += spark.vx;
+        spark.y += spark.vy;
+        spark.size -= 0.05; // 徐々に小さく
+    });
+
+    explosions.forEach(explosion => {
+        explosion.x += explosion.vx;
+        explosion.y += explosion.vy;
+        explosion.size -= 0.1; // 徐々に小さく
+    });
+
+     // シールドヒットエフェクトの更新
+    shieldHits.forEach(shieldHit => {
+        shieldHit.size += 0.5; // 徐々に大きく
+        shieldHit.life--; // 寿命を減らす
+    });
+
+    ripples.forEach(ripple => {
+        ripple.size += 0.5; // 徐々に大きく
+        ripple.life--; // 寿命を減らす
+    });
+
+    // 寿命が尽きたパーティクルを削除
+    sparks = sparks.filter(spark => spark.size > 0);
+    explosions = explosions.filter(explosion => explosion.size > 0);
+    shieldHits = shieldHits.filter(shieldHit => shieldHit.life > 0);
+    ripples = ripples.filter(ripple => ripple.life > 0);
+
+
+  // Check for game over
+  const teamAAlive = players.slice(0, 3).filter(p => p !== null).length > 0;
+  const teamBAlive = players.slice(3, 6).filter(p => p !== null).length > 0;
+  if (!teamAAlive && !teamBAlive) {
+    gameRunning = false;
+    alert("Draw!");
+  }else if (!teamAAlive || !teamBAlive) {
+    gameRunning = false;
+    alert(teamAAlive ? "Team A wins!" : "Team B wins!");
+  }
+
+  gameTime++;
+  if (gameTime / 60 > maxGameTime) {
+      gameRunning = false;
+      alert("Draw!");
+  }
+
+  // Update speech bubble timers
+    players.forEach(p => {
+        if (p && p.speechTimer > 0) {
+            p.speechTimer--;
+            if (p.speechTimer === 0) {
+                p.speech = null; // Clear speech when timer runs out
+            }
+        }
+    });
+
+    // Shield life update
+    players.forEach(p => {
+        if (p && p.shield) {
+            p.shield.life--;
+            if (p.shield.life <= 0) {
+                p.shield = null;
+            }
+        }
+    });
+
+    // HPが0以下になったプレイヤーを処理
+    for (let i = 0; i < players.length; i++) {
+        if (players[i] && players[i].hp <= 0) {
+            // 爆発エフェクト
+            for (let k = 0; k < 20; k++) {
+                explosions.push({
+                    x: players[i].x,
+                    y: players[i].y,
+                    vx: (Math.random() - 0.5) * 7, // より強い爆発
+                    vy: (Math.random() - 0.5) * 7, // より強い爆発
+                    size: Math.random() * 4 + 2, // 大きめのサイズ
+                    color: 'red' // 爆発の色
+                });
+            }
+            players[i] = null; // ロボットを破壊済みにする
+        }
+    }
+
+    // Decoyの成長と生成
+    decoys.forEach((decoy, i) => {
+      decoy.size += decoy.growthRate;
+      decoy.angle += decoy.rotationSpeed;
+
+      if (decoy.size >= robotRadius) {
+        // Decoyが成長しきったら、新しいplayerを生成
+        const newPlayer = {
+          file: null,
+          x: decoy.x,
+          y: decoy.y,
+          color: decoy.color,
+          dir: 0,
+          hp: 1,
+          energy: 0,
+          lastAction: null,
+          speech: null,
+          speechTimer: 0,
+          shield: null
+        };
+        players.push(newPlayer);
+        decoys.splice(i, 1); // Decoyを削除
+      }
+    });
+}
+
+function drawRotatedRect(ctx, x, y, width, height, angle) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle * Math.PI / 180);
+  ctx.fillRect(-width / 2, -height / 2, width, height);
+  ctx.restore();
+}
+
+function drawMeterEnergy(ctx, x, y, value, color) {
+  const width = 30;
+  const height = 5;
+  const percentage = value / maxEnergy;
+
+  // Grey background
+  ctx.fillStyle = 'rgba(100, 100, 100, 0.1)';
+  ctx.fillRect(x - width / 2 + (width * percentage), y + 20, width * (1 - percentage), height);
+
+  // Colored portion
+  ctx.fillStyle = color;
+  ctx.fillRect(x - width / 2, y + 20, width * percentage, height);
+}
+
+function drawMeterHp(ctx, x, y, value, color) {
+  const width = 30;
+  const height = 5;
+  const percentage = value / maxHP;
+
+  // Grey background
+  ctx.fillStyle = 'rgba(100, 100, 100, 0.1)';
+  ctx.fillRect(x - width / 2 + (width * percentage), y + 20, width * (1 - percentage), height);
+
+  // Colored portion
+  ctx.fillStyle = color;
+  ctx.fillRect(x - width / 2, y + 20, width * percentage, height);
+}
+
+function drawGame() {
+  ctx.clearRect(0, 0, 400, 400);
+
+  // Draw players
+  players.forEach(p => {
+    if (p) {
+      ctx.fillStyle = p.color;
+      drawRotatedRect(ctx, p.x, p.y, 20, 20, p.dir);
+
+      ctx.fillStyle = "black";
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.dir * Math.PI / 180);
+      ctx.fillRect(5, -4, 5, 2);
+      ctx.fillRect(5, 3, 5, 2);
+      ctx.restore();
+
+      // Display energy using meter
+      drawMeterEnergy(ctx, p.x, p.y, p.energy, 'rgba(173, 255, 173, 0.5)');
+      drawMeterHp(ctx, p.x, p.y - 5, p.hp, 'rgba(173, 173, 255, 0.5)');
+
+      // Draw speech bubble
+      if (p.speech) {
+          ctx.font = '12px sans-serif';
+          ctx.fillStyle = 'black';
+          ctx.textAlign = 'center';
+          ctx.fillText(p.speech, p.x, p.y - 30);
+      }
+
+      // Draw shield
+      if (p.shield) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, robotRadius * 1.5, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(173, 216, 230, 0.5)'; // 透過する水色
+          ctx.fill();
+          ctx.strokeStyle = 'skyblue'; // 縁の色
+          ctx.stroke();
+      }
+    }
+  });
+
+  // Draw bullets
+  bullets.forEach(b => {
+    ctx.fillStyle = b.color;
+    ctx.fillRect(b.x - 2, b.y - 2, 4, 4);
+  });
+
+  // Draw punches
+  punches.forEach((punch,i) => {
+      ctx.save();
+      ctx.translate(punch.x, punch.y);
+      ctx.rotate(punch.dir * Math.PI / 180);
+      ctx.fillStyle = punch.color;
+      ctx.fillRect(-punch.size, -punch.size, punch.size * 2, punch.size * 2); // punchの描画
+      ctx.restore();
+  });
+
+  // 描画処理
+    sparks.forEach(spark => {
+        ctx.fillStyle = spark.color;
+        ctx.beginPath();
+        ctx.arc(spark.x, spark.y, spark.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    explosions.forEach(explosion => {
+        ctx.fillStyle = explosion.color;
+        ctx.beginPath();
+        ctx.arc(explosion.x, explosion.y, explosion.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    // シールドヒットエフェクトの描画
+    shieldHits.forEach(shieldHit => {
+        ctx.beginPath();
+        ctx.ellipse(shieldHit.x, shieldHit.y, shieldHit.size, shieldHit.size, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(173, 216, 230, 0.5)'; // 透過する水色
+        ctx.fill();
+        ctx.strokeStyle = 'skyblue'; // 縁の色
+        ctx.stroke();
+    });
+
+    // 波紋の描画
+    ripples.forEach(ripple => {
+        ctx.beginPath();
+        ctx.ellipse(ripple.x, ripple.y, ripple.size, ripple.size, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = ripple.color; 
+        ctx.stroke();
+    });
+
+    // Draw decoys
+    decoys.forEach(decoy => {
+      ctx.fillStyle = decoy.color;
+      ctx.save();
+      ctx.translate(decoy.x, decoy.y);
+      ctx.rotate(decoy.angle * Math.PI / 180);
+      ctx.fillRect(-decoy.size / 2, -decoy.size / 2, decoy.size, decoy.size);
+      ctx.restore();
+    });
+}
+
+async function startGame() {
+  gameRunning = false;
+  await sleep(1000);
+  initializeGame();
+  await loadPlayers();
+  gameRunning = true;
+  gameLoop();
+}
+
+function distance(x1, y1, x2, y2) {
+    return Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
+}
+
+function collisionDistance(p1, p2) {
+    const d = Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+    return Math.max(0, d - 2 * robotRadius); 
+}
+
+function angleTo(x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    return (angle + 360) % 360; // 0-360の範囲にする
+}
+
+function angleDifference(a, b) {
+    let diff = (b - a + 180) % 360 - 180;
+    return diff;
+}
+
+
+async function gameLoop() {
+  if (!gameRunning) return;
+  updateGame();
+
+  players.forEach((p, i) => {
+    if (p && workers[i]) {
+        const punchInfo = punches.filter(punch => punch.source !== i).map(punch => ({
+            x: punch.x,
+            y: punch.y,
+            color: punch.color,
+            size: punch.size,
+            distance: distance(p.x, p.y, punch.x, punch.y),
+            angle: angleDifference(p.dir, angleTo(p.x, p.y, punch.x, punch.y))
+        })).sort((a, b) => a.distance - b.distance);
+
+      const playerInfo = players.filter(pl => pl !== null && pl !== p).map(pp => ({
+          x: pp.x,
+          y: pp.y,
+          color: pp.color,
+          distance: collisionDistance(p, pp),
+          angle: angleDifference(p.dir, angleTo(p.x, p.y, pp.x, pp.y))
+      })).sort((a, b) => a.distance - b.distance);
+
+      const bulletInfo = bullets.map(bullet => ({
+          x: bullet.x,
+          y: bullet.y,
+          color: bullet.color,
+          distance: distance(p.x, p.y, bullet.x, bullet.y),
+          angle: angleDifference(p.dir, angleTo(p.x, p.y, bullet.x, bullet.y))
+      })).sort((a, b) => a.distance - b.distance);
+
+      workers[i].postMessage({
+        x: p.x,
+        y: p.y,
+        dir: p.dir,
+        hp: p.hp,
+        energy: p.energy,
+        color: p.color,
+        players: playerInfo,
+        bullets: bulletInfo,
+        punches: punchInfo,
+      });
+    }
+  });
+
+  drawGame();
+  await sleep(sleepTime);
+  requestAnimationFrame(gameLoop);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const startButton = document.getElementById("startButton");
+  const battlefield = document.getElementById("battlefield");
+  ctx = battlefield.getContext("2d");
+
+  startButton.addEventListener("click", startGame);
+});
+
+</script>
+
+</body>
+</html>
