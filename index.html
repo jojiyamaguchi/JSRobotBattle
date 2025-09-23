@@ -185,6 +185,7 @@ let sleepTime = 10; // sleep time in ms
 let speechBubbles = []; // Speech bubble array
 let shields = []; // シールドの配列
 let shieldHits = []; // シールドヒットエフェクトの配列
+let punchVisuals = [];
 let ripples = []; // 波紋の配列
 let decoys = []; // Decoy array
 let endMessageShown = false;
@@ -211,6 +212,7 @@ function initializeGame() {
   speechBubbles = []; // Initialize speech bubbles
   shields = []; // Initialize shields
   shieldHits = []; // Initialize shield hits
+  punchVisuals = [];
   ripples = [];
   decoys = []; // Initialize decoys
   gameTime = 0;
@@ -331,10 +333,10 @@ function updateGame() {
           p.dir += angle;
           p.dir = (p.dir + 360) % 360; // 角度を0-360の範囲に保つ
       } else if (a.type === "punch") {  
-        const punchSize = robotRadius / 2;
+        const punchSize = robotRadius;
         const angleRad = p.dir * Math.PI / 180;
-        const punchX = p.x + (robotRadius + (punchSize / 2)) * Math.cos(angleRad);
-        const punchY = p.y + (robotRadius + (punchSize / 2)) * Math.sin(angleRad);
+        const punchX = p.x + robotRadius * Math.cos(angleRad);
+        const punchY = p.y + robotRadius * Math.sin(angleRad);
 
         punches.push({
           x: punchX,
@@ -342,10 +344,31 @@ function updateGame() {
           color: p.color,
           size: punchSize,
           dir: p.dir,
-          life: 5,
+          life: 1,
           source: i, // punchを実行したロボットのindex
         });
 
+        let punchStartSide = Math.random() < 0.5 ? -1 : 1;
+        let punchEndSide = Math.random() < 0.5 ? -1 : 1;
+        let punchStartPos = Math.random();
+        let punchEndPos = Math.random();
+        const pSX = punchX + (robotRadius * punchStartPos) * Math.cos(angleRad - (punchStartSide * 90 * Math.PI / 180));
+        const pSY = punchY + (robotRadius * punchStartPos) * Math.sin(angleRad - (punchStartSide * 90 * Math.PI / 180));
+        let pEX = punchX + punchSize * Math.cos(angleRad);
+        let pEY = punchY + punchSize * Math.sin(angleRad);
+        pEX = pEX + (robotRadius * punchEndPos) * Math.cos(angleRad - (punchEndSide * 90 * Math.PI / 180));
+        pEY = pEY + (robotRadius * punchEndPos) * Math.sin(angleRad - (punchEndSide * 90 * Math.PI / 180));
+
+        punchVisuals.push({
+            sx: pSX,
+            sy: pSY,
+            ex: pEX,
+            ey: pEY,
+            dir: p.dir,
+            color: p.color,
+            clockWise: punchStartSide < 0 ? true : false,
+            life: 30,
+        });
         // // パンチの波紋
         // ripples.push({
         //     x: punchX,
@@ -417,7 +440,7 @@ function updateGame() {
                     let contactY = player.y + dy / len * robotRadius;
           
                     // シールドがあればダメージを半減
-                    let damage = 10;
+                    let damage = 50;
                     // if (player.shield) {
                     //   damage /= 10;
 
@@ -521,11 +544,16 @@ function updateGame() {
         ripple.life--; // 寿命を減らす
     });
 
+    punchVisuals.forEach(punchVisual => {
+        punchVisual.life--; // 寿命を減らす
+    });
+
     // 寿命が尽きたパーティクルを削除
     sparks = sparks.filter(spark => spark.size > 0);
     explosions = explosions.filter(explosion => explosion.size > 0);
     shieldHits = shieldHits.filter(shieldHit => shieldHit.life > 0);
     ripples = ripples.filter(ripple => ripple.life > 0);
+    punchVisuals = punchVisuals.filter(punchVisual => punchVisual.life > 0);
 
 
   // Check for game over
@@ -701,17 +729,68 @@ function drawGame() {
     ctx.fillRect(b.x - 2, b.y - 2, 4, 4);
   });
 
-  // Draw punches
-  punches.forEach((punch,i) => {
-      ctx.save();
-      ctx.translate(punch.x, punch.y);
-      ctx.rotate(punch.dir * Math.PI / 180);
-      ctx.fillStyle = punch.color;
-      ctx.fillRect(-punch.size, -punch.size, punch.size * 2, punch.size * 2); // punchの描画
-      ctx.restore();
-  });
+//   // Draw punches
+//   punches.forEach((punch,i) => {
+//       ctx.save();
+//       ctx.translate(punch.x, punch.y);
+//       ctx.rotate(punch.dir * Math.PI / 180);
+//       ctx.arc(punch.x, punch.y, punch.size, 0, Math.PI * 2);
+//       ctx.strokeStyle = "red";
+//       ctx.stroke();
+// //      ctx.fillStyle = punch.color;
+// //      ctx.fillRect(-punch.size, -punch.size, punch.size * 2, punch.size * 2); // punchの描画
+//        ctx.restore();
+//    });
 
-  // 描画処理
+    function calcRightAngleVertex(x1, y1, x2, y2, clockWise) {
+        const mx = (x1 + x2) / 2;
+        const my = (y1 + y2) / 2;
+
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+
+        const L = Math.sqrt(dx*dx + dy*dy);
+        const h = (L / 2) / Math.sqrt(2);
+
+        // 垂直ベクトルを単位ベクトルにする
+        let perpX;
+        let perpY;
+        if(clockWise) {
+            perpX = dy / L;
+            perpY = -dx / L;
+        }
+        else {
+            perpX = -dy / L;
+            perpY = dx / L;
+        }
+
+        const qx = mx + perpX * h;
+        const qy = my + perpY * h;
+
+        return { x: qx, y: qy };
+    }
+
+    // punchのビジュアルの描画
+    punchVisuals.forEach(pv => {
+        //ctx.save();
+        //ctx.translate(pv.x, pv.y);
+        //ctx.rotate(pv.dir * pv.PI / 180);
+        ctx.beginPath();
+        //ctx.arc(pv.x, pv.y, 5, 0, Math.PI * 2);
+        ctx.moveTo(pv.sx, pv.sy);
+        //ctx.lineTo(pv.ex, pv.ey);
+        let controlPoint = calcRightAngleVertex(pv.sx, pv.sy, pv.ex, pv.ey, !pv.clockWise );
+        ctx.quadraticCurveTo(controlPoint.x, controlPoint.y, pv.ex, pv.ey);
+        ctx.arc(pv.ex, pv.ey, 2, 0, Math.PI * 2);
+        ctx.strokeStyle = pv.color;
+        ctx.stroke();
+        ctx.fillStyle = pv.color;
+        ctx.fill();
+        ctx.closePath();
+        //ctx.restore();
+    });
+
+    // 描画処理
     sparks.forEach(spark => {
         ctx.fillStyle = spark.color;
         ctx.beginPath();
@@ -784,7 +863,6 @@ function angleDifference(a, b) {
     let diff = (b - a + 180) % 360 - 180;
     return diff;
 }
-
 
 async function gameLoop() {
   if (!gameRunning) return;
