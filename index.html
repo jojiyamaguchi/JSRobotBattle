@@ -86,7 +86,7 @@
   <h3>ロボット説明</h3>
   <div class="action-block">
     <robot>
-    <br>HP: 1000
+    <br>HP: 2000
     <br>エネルギー上限: 100
     <br>ロボットはエネルギーを消費しながら行動します。行動した場合もしなかった場合も、常にエネルギーを1回復します。
   </div>
@@ -130,7 +130,7 @@
     ＜punch＞
     <br>近距離格闘攻撃します
     <br>&nbsp;&nbsp;消費エネルギー10
-    <br>&nbsp;&nbsp;ダメージ 10×5フレーム
+    <br>&nbsp;&nbsp;ダメージ 50
     <br>指定可能なパラメーター: なし
     <code>
     postMessage({action:{type:"punch"}});
@@ -150,7 +150,7 @@
 
   <div class="action-block">
     ＜decoy＞
-    <br>デコイ（おとり）を作成します。デコイは行動できませんが、完全に１つの機体として認識されます。生存機体としてもカウントされます。デコイのHPは1です。
+    <br>デコイ（おとり）を作成します。デコイは行動できませんが、完全に１つの機体として認識されます。生存機体としてもカウントされます。デコイのHPは200です。
     <br>指定可能なパラメーター:
     <br>&nbsp;&nbsp;dir: デコイ射出方向 (度) [省略した場合は0度]
     <br>&nbsp;&nbsp;color: デコイの色 [省略した場合は自機と同じ色]
@@ -639,7 +639,7 @@ function updateGame() {
           y: decoy.y,
           color: decoy.color,
           dir: 0,
-          hp: 500,
+          hp: 200,
           energy: 0,
           lastAction: null,
           speech: null,
