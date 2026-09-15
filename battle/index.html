@@ -299,20 +299,18 @@ let workerObjectUrls = [];
 let entranceAnimationId = null;
 
 const BATTLE_COUNT_KEY = "progrobots-battle-count-v1";
+const ENEMY_TEAM_KEY = "progrobots-enemy-team-v1";
+const ACHIEVEMENT_UNLOCKS_KEY = "progrobots-achievement-unlocks-v1";
 const robotUnlockRequirements = {
   infighter1: 0,
   sniper1: 1,
   infighter2: 3,
-  sniper2: 6,
-  ninja1: 9,
-  ninja2: 12
+  sniper2: 6
 };
-const unlockNotices = {
+const battleCountUnlockNotices = {
   1: "スナイパーLv1",
   3: "インファイターLv2",
-  6: "スナイパーLv2",
-  9: "ニンジャLv1",
-  12: "ニンジャLv2"
+  6: "スナイパーLv2"
 };
 
 function loadBattleCount() {
@@ -320,16 +318,55 @@ function loadBattleCount() {
   return Number.isFinite(savedCount) && savedCount > 0 ? savedCount : 0;
 }
 
+function loadAchievementUnlocks() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(ACHIEVEMENT_UNLOCKS_KEY));
+    return {
+      ninja1: saved?.ninja1 === true,
+      ninja2: saved?.ninja2 === true
+    };
+  } catch {
+    return {ninja1: false, ninja2: false};
+  }
+}
+
 let battleCount = loadBattleCount();
+const achievementUnlocks = loadAchievementUnlocks();
 
 function isRobotUnlocked(type) {
+  if (type === "ninja1" || type === "ninja2") {
+    return achievementUnlocks[type];
+  }
   return battleCount >= robotUnlockRequirements[type];
 }
 
-function recordBattleCompletion() {
+function recordBattleCompletion(ownTeamWon) {
   battleCount += 1;
   localStorage.setItem(BATTLE_COUNT_KEY, String(battleCount));
-  return unlockNotices[battleCount] || null;
+
+  const unlockedRobots = [];
+  const countUnlock = battleCountUnlockNotices[battleCount];
+  if (countUnlock) {
+    unlockedRobots.push(countUnlock);
+  }
+
+  if (ownTeamWon) {
+    const enemyTeamPreset = localStorage.getItem(ENEMY_TEAM_KEY);
+    if (enemyTeamPreset === "level4" && !achievementUnlocks.ninja1) {
+      achievementUnlocks.ninja1 = true;
+      unlockedRobots.push("ニンジャLv1");
+    }
+    if (enemyTeamPreset === "level5" && !achievementUnlocks.ninja2) {
+      achievementUnlocks.ninja2 = true;
+      unlockedRobots.push("ニンジャLv2");
+    }
+    localStorage.setItem(
+      ACHIEVEMENT_UNLOCKS_KEY,
+      JSON.stringify(achievementUnlocks)
+    );
+  }
+
+  return unlockedRobots;
 }
 
 const robotPrograms = {
@@ -878,7 +915,10 @@ function updateGame() {
     finishGame("引き分け！");
     return;
   } else if (!teamAAlive || !teamBAlive) {
-    finishGame(teamAAlive ? "自チームの勝利！" : "相手チームの勝利！");
+    finishGame(
+      teamAAlive ? "自チームの勝利！" : "相手チームの勝利！",
+      teamAAlive
+    );
     return;
   }
 
@@ -1204,20 +1244,20 @@ function prepareBattle() {
   startEntranceAnimation();
 }
 
-function finishGame(message) {
+function finishGame(message, ownTeamWon = false) {
   if (endMessageShown) return;
 
   endMessageShown = true;
   gameRunning = false;
   battleState = "finished";
   updateBattleControls();
-  const unlockedRobot = recordBattleCompletion();
+  const unlockedRobots = recordBattleCompletion(ownTeamWon);
 
   setTimeout(() => {
     alert(message);
-    if (unlockedRobot) {
-      alert(`${unlockedRobot}がアンロックされました！`);
-    }
+    unlockedRobots.forEach(robotName => {
+      alert(`${robotName}がアンロックされました！`);
+    });
     prepareBattle();
   }, 0);
 }
