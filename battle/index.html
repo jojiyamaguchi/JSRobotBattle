@@ -709,19 +709,19 @@ function updateGame() {
                     let contactX = player.x + dx / len * robotRadius;
                     let contactY = player.y + dy / len * robotRadius;
           
-                    // シールドがあればダメージを半減
+                    // シールド中もパンチダメージの20%を受ける
                     let damage = 40;
-                    // if (player.shield) {
-                    //   damage /= 10;
+                    if (player.shield) {
+                      damage *= 0.2;
 
-                    //   // シールドに当たったエフェクト
-                    //   shieldHits.push({
-                    //     x: contactX,
-                    //     y: contactY,
-                    //     size: 10,
-                    //     life: 10
-                    //   });
-                    // }
+                      // シールドに当たったエフェクト
+                      shieldHits.push({
+                        x: contactX,
+                        y: contactY,
+                        size: 10,
+                        life: 10
+                      });
+                    }
                     player.hp -= damage;
 
                     // 火花エフェクト
