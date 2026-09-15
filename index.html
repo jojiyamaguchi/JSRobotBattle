@@ -470,11 +470,13 @@ function drawField() {
 }
 
 function drawRobot(unit, color, label, direction, selected) {
+  const isSniper = unit.type.startsWith("sniper");
+
   ctx.save();
   ctx.translate(unit.x, unit.y);
   ctx.rotate(direction * Math.PI / 180);
 
-  if (unit.type === "sniper1") {
+  if (isSniper) {
     ctx.fillStyle = color;
     ctx.fillRect(-13, -10, 26, 20);
     ctx.fillStyle = "#263027";
@@ -503,7 +505,7 @@ function drawRobot(unit, color, label, direction, selected) {
   ctx.textAlign = "center";
   ctx.fillText(label, unit.x, unit.y + 38);
   ctx.font = "11px system-ui";
-  ctx.fillText(unit.type === "sniper1" ? "S" : "I", unit.x, unit.y + 4);
+  ctx.fillText(isSniper ? "S" : "I", unit.x, unit.y + 4);
   ctx.textAlign = "start";
 }
 
