@@ -41,26 +41,6 @@
     z-index: 10;
     pointer-events: none; /* Prevent interaction */
   }
-  /* ▼ ここからアクション説明用 */
-  #action-guide {
-    margin-top: 20px;
-    padding: 15px;
-    border-top: 2px solid #333;
-    font-family: monospace;
-    background-color: #f9f9f9;
-  }
-  #action-guide h3 {
-    margin-bottom: 10px;
-  }
-  .action-block {
-    margin-bottom: 20px;
-  }
-  .action-block code {
-    display: block;
-    background: #eee;
-    padding: 5px;
-    margin-top: 5px;
-  }
   body {
     margin: 0;
     padding: 20px;
@@ -138,6 +118,76 @@
     border-radius: 2px;
     background: #f8fcff;
   }
+  .page-nav {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  #startButton:disabled {
+    opacity: 0.5;
+    cursor: wait;
+  }
+  .code-editor[hidden] {
+    display: none;
+  }
+  .code-editor {
+    margin-top: 16px;
+    padding: 16px;
+    border: 1px solid #d7dcd3;
+    border-radius: 16px;
+    background: white;
+    box-shadow: 0 8px 24px rgba(33, 38, 30, 0.07);
+  }
+  .code-editor-header {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .code-editor-header h2,
+  .code-editor-header p {
+    margin: 0;
+  }
+  .code-editor-kicker {
+    color: #6b7467;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+  }
+  .code-editor-note {
+    margin: 8px 0 12px;
+    color: #5d6658;
+    font-size: 13px;
+  }
+  #robotCodeEditor {
+    display: block;
+    width: 100%;
+    min-height: 300px;
+    padding: 14px;
+    resize: vertical;
+    border: 1px solid #aeb7a8;
+    border-radius: 10px;
+    color: #eaf1e7;
+    font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    tab-size: 2;
+    background: #252b24;
+  }
+  .code-editor-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+  }
+  .secondary-button {
+    min-height: 38px;
+    padding: 0 13px;
+    border: 1px solid #b9c0b4;
+    border-radius: 999px;
+    color: #35402f;
+    font: inherit;
+    font-weight: 700;
+    background: #f7f8f5;
+    cursor: pointer;
+  }
   @media (max-width: 560px) {
     body {
       padding: 12px;
@@ -160,7 +210,10 @@
       <h1>progrobots <small>プログロボコン</small></h1>
       <p>バトルページ</p>
     </div>
-    <a class="back-link" href="../">← セレクションに戻る</a>
+    <nav class="page-nav">
+      <a class="back-link" href="../">← セレクションに戻る</a>
+      <a class="back-link" href="../help/">ヘルプ</a>
+    </nav>
   </header>
 
   <div class="team-summary">
@@ -182,93 +235,20 @@
   </div>
 
   <canvas id="battlefield" width="400" height="600"></canvas>
-<div id="action-guide">
-  <h3>ロボット説明</h3>
-  <div class="action-block">
-    <robot>
-    <br>HP: 2000
-    <br>エネルギー上限: 100
-    <br>ロボットはエネルギーを消費しながら行動します。行動した場合もしなかった場合も、常にエネルギーを1回復します。
-  </div>
-
-  <h3>アクション一覧</h3>
-
-  <div class="action-block">
-    ＜move＞
-    <br>ロボットを移動させます
-    <br>&nbsp;&nbsp;消費エネルギー 2
-    <br>指定可能なパラメーター:
-    <br>&nbsp;&nbsp;dir: 方向 (度) [省略した場合は0度]
-    <code>
-    postMessage({action:{type:"move", dir:90}});
-    </code>
-  </div>
-
-  <div class="action-block">
-    ＜turn＞
-    <br>向きを変更します (-45〜45度)
-    <br>&nbsp;&nbsp;消費エネルギー 2
-    <br>指定可能なパラメーター:
-    <br>&nbsp;&nbsp;dir: 回転角度 (度) [省略した場合は45度]
-    <code>
-    postMessage({action:{type:"turn", dir:30}});
-    </code>
-  </div>
-
-  <div class="action-block">
-    ＜fire＞
-    <br>エネルギー弾を発射します
-    <br>&nbsp;&nbsp;消費エネルギー 40
-    <br>&nbsp;&nbsp;ダメージ 100
-    <br>指定可能なパラメーター: なし
-    <code>
-    postMessage({action:{type:"fire"}});
-    </code>
-  </div>
-
-  <div class="action-block">
-    ＜punch＞
-    <br>近距離格闘攻撃します。消費エネルギーが低いので強力な連続攻撃が可能です。
-    <br>&nbsp;&nbsp;消費エネルギー 6
-    <br>&nbsp;&nbsp;ダメージ 40
-    <br>指定可能なパラメーター: なし
-    <code>
-    postMessage({action:{type:"punch"}});
-    </code>
-  </div>
-
-  <div class="action-block">
-    ＜shield＞
-    <br>シールドを展開しダメージを軽減します
-    <br>シールドは銃弾によるダメージを1/10に軽減します。格闘によるダメージは軽減できません。
-    <br>&nbsp;&nbsp;消費エネルギー 4
-    <br>指定可能なパラメーター: なし
-    <code>
-    postMessage({action:{type:"shield"}});
-    </code>
-  </div>
-
-  <div class="action-block">
-    ＜decoy＞
-    <br>デコイ（おとり）を作成します。
-    <br>デコイは行動できませんが、完全に１つの機体として認識されます。デコイのHPは1です。
-    <br>&nbsp;&nbsp;消費エネルギー 60
-    <br>指定可能なパラメーター:
-    <br>&nbsp;&nbsp;dir: デコイ射出方向 (度) [省略した場合は0度]
-    <br>&nbsp;&nbsp;color: デコイの色 [省略した場合は自機と同じ色]
-    <code>
-    postMessage({action:{type:"decoy", color:"orange"}});
-    </code>
-  </div>
-  
-  <div class="action-block">
-    ＜charge＞
-    <br>エネルギーを2ポイントチャージします。
-    <code>
-    postMessage({action:{type:"charge"}});
-    </code>
-  </div>
-</div>
+  <section id="codeEditorPanel" class="code-editor" hidden>
+    <header class="code-editor-header">
+      <div>
+        <p class="code-editor-kicker">ROBOT PROGRAM</p>
+        <h2 id="codeEditorTitle">自機1のコード</h2>
+      </div>
+      <button id="closeCodeEditor" class="secondary-button" type="button">閉じる</button>
+    </header>
+    <p class="code-editor-note">編集内容は自動保存され、次のバトル開始時から反映されます。</p>
+    <textarea id="robotCodeEditor" aria-label="選択したロボットのJavaScriptコード" spellcheck="false"></textarea>
+    <div class="code-editor-actions">
+      <button id="resetRobotCode" class="secondary-button" type="button">初期コードに戻す</button>
+    </div>
+  </section>
 
 <script>
 let players = [];
@@ -295,6 +275,13 @@ let punchVisuals = [];
 let ripples = []; // 波紋の配列
 let decoys = []; // Decoy array
 let endMessageShown = false;
+let battleState = "loading";
+let selectedRobotIndex = null;
+let editingRobotIndex = null;
+let robotCodes = [];
+let defaultRobotSources = {};
+let workerObjectUrls = [];
+let entranceAnimationId = null;
 
 
 const robotPrograms = {
@@ -421,12 +408,47 @@ function initializeGame() {
   endMessageShown = false;
 }
 
-async function loadPlayers() {
+function robotCodeStorageKey(index, type) {
+  return `progrobots-robot-code-v1-${index}-${type}`;
+}
+
+async function loadRobotCodes() {
+  const types = [...new Set([
+    ...battleConfig.own.map(unit => unit.type),
+    ...battleConfig.enemy.map(unit => unit.type)
+  ])];
+
+  await Promise.all(types.map(async type => {
+    const response = await fetch(new URL(robotPrograms[type], window.location.href));
+    if (!response.ok) {
+      throw new Error(`${robotTypeLabels[type]}のコードを読み込めませんでした。`);
+    }
+    defaultRobotSources[type] = await response.text();
+  }));
+
+  robotCodes = [
+    ...battleConfig.own.map((unit, index) =>
+      localStorage.getItem(robotCodeStorageKey(index, unit.type)) ?? defaultRobotSources[unit.type]
+    ),
+    ...battleConfig.enemy.map(unit => defaultRobotSources[unit.type])
+  ];
+}
+
+function stopWorkers() {
+  workers.forEach(worker => worker?.terminate());
+  workerObjectUrls.forEach(url => URL.revokeObjectURL(url));
   workers = [];
+  workerObjectUrls = [];
+}
+
+async function loadPlayers() {
+  stopWorkers();
 
   for (let i = 0; i < players.length; i++) {
-    const programPath = robotPrograms[players[i].type];
-    const worker = new Worker(new URL(programPath, window.location.href));
+    const code = robotCodes[i] ?? defaultRobotSources[players[i].type];
+    const objectUrl = URL.createObjectURL(new Blob([code], {type: "application/javascript"}));
+    const worker = new Worker(objectUrl);
+    workerObjectUrls.push(objectUrl);
 
     worker.onmessage = (event) => {
       const { action } = event.data;
@@ -773,26 +795,17 @@ function updateGame() {
   const teamAAlive = players.slice(0, 3).filter(p => p !== null).length > 0;
   const teamBAlive = players.slice(3, 6).filter(p => p !== null).length > 0;
   if (!teamAAlive && !teamBAlive) {
-    gameRunning = false;
-    if(!endMessageShown) {
-      endMessageShown = true;
-      alert("引き分け！");
-    }
-  }else if (!teamAAlive || !teamBAlive) {
-    // gameRunning = false;
-    if(!endMessageShown) {
-      endMessageShown = true;
-      alert(teamAAlive ? "自チームの勝利！" : "相手チームの勝利！");
-    }
+    finishGame("引き分け！");
+    return;
+  } else if (!teamAAlive || !teamBAlive) {
+    finishGame(teamAAlive ? "自チームの勝利！" : "相手チームの勝利！");
+    return;
   }
 
   gameTime++;
   if (gameTime / 60 > maxGameTime) {
-    gameRunning = false;  
-    if(!endMessageShown) {
-      endMessageShown = true;
-      alert("引き分け！");
-    }
+    finishGame("引き分け！");
+    return;
   }
 
   // Update speech bubble timers
@@ -900,6 +913,209 @@ function drawHpFrame(ctx, x, y, width, height, angle, value) {
   ctx.restore();
 }
 
+function getNoteIconBounds(player) {
+  return {
+    x: player.x + 15,
+    y: player.y - 38,
+    width: 25,
+    height: 30
+  };
+}
+
+function drawNoteIcon(player) {
+  const note = getNoteIconBounds(player);
+  ctx.save();
+  ctx.shadowColor = 'rgba(28, 34, 26, 0.25)';
+  ctx.shadowBlur = 5;
+  ctx.fillStyle = '#fffdf2';
+  ctx.strokeStyle = '#465142';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(note.x, note.y);
+  ctx.lineTo(note.x + note.width - 7, note.y);
+  ctx.lineTo(note.x + note.width, note.y + 7);
+  ctx.lineTo(note.x + note.width, note.y + note.height);
+  ctx.lineTo(note.x, note.y + note.height);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  ctx.moveTo(note.x + note.width - 7, note.y);
+  ctx.lineTo(note.x + note.width - 7, note.y + 7);
+  ctx.lineTo(note.x + note.width, note.y + 7);
+  ctx.stroke();
+
+  ctx.strokeStyle = '#788272';
+  ctx.lineWidth = 1;
+  for (let line = 0; line < 3; line++) {
+    const y = note.y + 13 + line * 5;
+    ctx.beginPath();
+    ctx.moveTo(note.x + 5, y);
+    ctx.lineTo(note.x + note.width - 5, y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawReadySelection(player, index) {
+  if (battleState !== "ready" || index !== selectedRobotIndex || index >= 3) return;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, robotRadius + 8, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(56, 86, 200, 0.9)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 3]);
+  ctx.stroke();
+  ctx.restore();
+
+  drawNoteIcon(player);
+}
+
+function updateBattleControls() {
+  const button = document.getElementById("startButton");
+  button.disabled = battleState !== "ready";
+  button.textContent = battleState === "entering" ? "ロボット入場中…" : "バトル開始";
+}
+
+function closeCodeEditor() {
+  editingRobotIndex = null;
+  document.getElementById("codeEditorPanel").hidden = true;
+}
+
+function openCodeEditor(index) {
+  if (battleState !== "ready" || index < 0 || index >= 3) return;
+
+  editingRobotIndex = index;
+  const player = players[index];
+  document.getElementById("codeEditorTitle").textContent =
+    `自機${index + 1}：${robotTypeLabels[player.type]}`;
+  document.getElementById("robotCodeEditor").value = robotCodes[index];
+  const panel = document.getElementById("codeEditorPanel");
+  panel.hidden = false;
+  panel.scrollIntoView({behavior: "smooth", block: "nearest"});
+}
+
+function handleBattlefieldPointer(event) {
+  if (battleState !== "ready") return;
+
+  const canvas = event.currentTarget;
+  const rect = canvas.getBoundingClientRect();
+  const x = (event.clientX - rect.left) * canvas.width / rect.width;
+  const y = (event.clientY - rect.top) * canvas.height / rect.height;
+
+  if (selectedRobotIndex !== null && players[selectedRobotIndex]) {
+    const note = getNoteIconBounds(players[selectedRobotIndex]);
+    if (
+      x >= note.x && x <= note.x + note.width &&
+      y >= note.y && y <= note.y + note.height
+    ) {
+      openCodeEditor(selectedRobotIndex);
+      return;
+    }
+  }
+
+  const hitIndex = players.slice(0, 3).findIndex(player =>
+    player && Math.hypot(player.x - x, player.y - y) <= robotRadius + 8
+  );
+
+  selectedRobotIndex = hitIndex >= 0 ? hitIndex : null;
+  closeCodeEditor();
+  drawGame();
+
+  const status = document.getElementById("battleStatus");
+  status.textContent = hitIndex >= 0
+    ? `自機${hitIndex + 1}を選択しました。ノートをタップするとコードを編集できます。`
+    : "自機をタップするとコードを確認・編集できます。";
+}
+
+function easeOutBack(progress) {
+  const c1 = 1.35;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(progress - 1, 3) + c1 * Math.pow(progress - 1, 2);
+}
+
+function startEntranceAnimation() {
+  if (entranceAnimationId !== null) {
+    cancelAnimationFrame(entranceAnimationId);
+  }
+
+  battleState = "entering";
+  selectedRobotIndex = null;
+  closeCodeEditor();
+  updateBattleControls();
+
+  const status = document.getElementById("battleStatus");
+  status.textContent = "ロボットが初期配置へ移動しています。";
+
+  const targets = players.map(player => ({x: player.x, y: player.y}));
+  players.forEach((player, index) => {
+    player.x = targets[index].x;
+    player.y = index < 3 ? battlefieldHeight + 28 : -28;
+  });
+
+  const startedAt = performance.now();
+  const duration = 650;
+  const stagger = 85;
+
+  const animate = now => {
+    let allArrived = true;
+
+    players.forEach((player, index) => {
+      const delay = (index % 3) * stagger;
+      const progress = Math.max(0, Math.min(1, (now - startedAt - delay) / duration));
+      if (progress < 1) allArrived = false;
+
+      const eased = easeOutBack(progress);
+      const startY = index < 3 ? battlefieldHeight + 28 : -28;
+      player.x = targets[index].x;
+      player.y = startY + (targets[index].y - startY) * eased;
+    });
+
+    drawGame();
+
+    if (allArrived) {
+      players.forEach((player, index) => {
+        player.x = targets[index].x;
+        player.y = targets[index].y;
+      });
+      entranceAnimationId = null;
+      battleState = "ready";
+      updateBattleControls();
+      status.textContent = "準備完了。自機をタップするとコードを確認・編集できます。";
+      drawGame();
+      return;
+    }
+
+    entranceAnimationId = requestAnimationFrame(animate);
+  };
+
+  entranceAnimationId = requestAnimationFrame(animate);
+}
+
+function prepareBattle() {
+  gameRunning = false;
+  stopWorkers();
+  initializeGame();
+  startEntranceAnimation();
+}
+
+function finishGame(message) {
+  if (endMessageShown) return;
+
+  endMessageShown = true;
+  gameRunning = false;
+  battleState = "finished";
+  updateBattleControls();
+
+  setTimeout(() => {
+    alert(message);
+    prepareBattle();
+  }, 0);
+}
+
 function drawGame() {
   ctx.clearRect(0, 0, battlefieldWidth, battlefieldHeight);
 
@@ -930,7 +1146,7 @@ function drawGame() {
   });
 
   // Draw players
-  players.forEach(p => {
+  players.forEach((p, index) => {
     if (p) {
       ctx.fillStyle = p.color;
       drawRotatedRect(ctx, p.x, p.y, 20, 20, p.dir);
@@ -946,6 +1162,7 @@ function drawGame() {
 
       // エネルギーは従来どおりバーで表示
       drawMeterEnergy(ctx, p.x, p.y, p.energy, 'rgba(173, 255, 173, 0.5)');
+      drawReadySelection(p, index);
 
       // Draw speech bubble
       if (p.speech) {
@@ -1079,12 +1296,16 @@ function drawGame() {
 }
 
 async function startGame() {
-  gameRunning = false;
-  workers.forEach(worker => worker?.terminate());
-  await sleep(100);
+  if (battleState !== "ready") return;
+
+  selectedRobotIndex = null;
+  closeCodeEditor();
   initializeGame();
   await loadPlayers();
+  battleState = "running";
   gameRunning = true;
+  updateBattleControls();
+  document.getElementById("battleStatus").textContent = "バトル中";
   gameLoop();
 }
 
@@ -1174,15 +1395,59 @@ function renderRoster() {
   render("enemyRoster", battleConfig.enemy);
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const startButton = document.getElementById("startButton");
   const battlefield = document.getElementById("battlefield");
+  const editor = document.getElementById("robotCodeEditor");
   ctx = battlefield.getContext("2d");
+
   renderRoster();
-  initializeGame();
-  drawGame();
+  startButton.disabled = true;
+  document.getElementById("battleStatus").textContent = "ロボットのコードを読み込んでいます。";
+
+  try {
+    await loadRobotCodes();
+    prepareBattle();
+  } catch (error) {
+    battleState = "error";
+    updateBattleControls();
+    document.getElementById("battleStatus").textContent = error.message;
+  }
 
   startButton.addEventListener("click", startGame);
+  battlefield.addEventListener("pointerdown", handleBattlefieldPointer);
+
+  editor.addEventListener("input", () => {
+    if (editingRobotIndex === null) return;
+    robotCodes[editingRobotIndex] = editor.value;
+    const type = players[editingRobotIndex].type;
+    localStorage.setItem(
+      robotCodeStorageKey(editingRobotIndex, type),
+      editor.value
+    );
+  });
+
+  editor.addEventListener("keydown", event => {
+    if (event.key === "Tab") {
+      event.preventDefault();
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      editor.setRangeText("  ", start, end, "end");
+      editor.dispatchEvent(new Event("input"));
+    }
+  });
+
+  document.getElementById("closeCodeEditor").addEventListener("click", closeCodeEditor);
+
+  document.getElementById("resetRobotCode").addEventListener("click", () => {
+    if (editingRobotIndex === null) return;
+    const type = players[editingRobotIndex].type;
+    robotCodes[editingRobotIndex] = defaultRobotSources[type];
+    editor.value = robotCodes[editingRobotIndex];
+    localStorage.removeItem(robotCodeStorageKey(editingRobotIndex, type));
+    document.getElementById("battleStatus").textContent =
+      `自機${editingRobotIndex + 1}のコードを初期状態に戻しました。`;
+  });
 });
 
 </script>
