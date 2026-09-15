@@ -1,19 +1,24 @@
 // progrobots: インファイター Level 2
-// Level 1の動きに加えて、近くの敵弾を斜め移動でかわします。
+// Level 1の動きに加えて、近くの敵弾を回避し、迫った敵弾をシールドで防ぎます。
 
 self.onmessage = ({ data }) => {
   const target = data.players.find(player => player.color !== data.color);
   if (!target) return;
 
-  // 60px以内に敵の弾丸があり、エネルギーが2以上なら斜めに回避する
+  // 60px以内にある、最も近い敵の弾丸を探す
   const nearbyBullet = data.bullets.find(
     bullet => bullet.color !== data.color && bullet.distance < 60
   );
 
-  if (nearbyBullet && data.energy >= 2) {
-    // 弾丸がある側とは反対方向へ斜め移動する
-    const evadeDirection = nearbyBullet.angle >= 0 ? 45 : -45;
-    postMessage({ action: { type: "move", dir: evadeDirection } });
+  if (nearbyBullet && data.energy >= 4) {
+    // 弾丸が25px以内まで迫ったらシールドを優先する
+    if (nearbyBullet.distance < 25) {
+      postMessage({ action: { type: "shield" } });
+    } else {
+      // 弾丸がある側とは反対方向へ斜め移動する
+      const evadeDirection = nearbyBullet.angle >= 0 ? 45 : -45;
+      postMessage({ action: { type: "move", dir: evadeDirection } });
+    }
     return;
   }
 
