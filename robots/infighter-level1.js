@@ -21,5 +21,11 @@ self.onmessage = ({ data }) => {
     return;
   }
 
-  postMessage({ action: { type: "move", dir: 0 } });
+  // エネルギーが10以上あるときは前進する
+  if (data.energy >= 10) {
+    postMessage({ action: { type: "move", dir: 0 } });
+  } else {
+    // エネルギーが10未満のときはチャージする
+    postMessage({ action: { type: "charge" } });
+  }
 };
