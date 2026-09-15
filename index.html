@@ -99,6 +99,21 @@
     border-top: 5px solid var(--orange);
   }
 
+  .team-select-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .team-description {
+    min-height: 2.8em;
+    margin: 9px 2px 4px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
   .unit-card {
     display: grid;
     gap: 8px;
@@ -275,40 +290,54 @@
   <div class="selection-layout">
     <section class="panel enemy-panel">
       <h2>1. 相手チームを選択</h2>
-      <p class="panel-intro">相手3体のタイプを選びます。選択結果はフィールド上部に表示されます。</p>
+      <p class="panel-intro">対戦するチームを選びます。カスタムでは3体を自由に編成できます。</p>
 
-      <div class="unit-card">
-        <div class="unit-title"><span>相手機1</span><span class="unit-mark">E1</span></div>
-        <select class="enemy-type" data-index="0" aria-label="相手機1のタイプ">
-          <option value="infighter1">インファイター Lv1</option>
-          <option value="infighter2">インファイター Lv2</option>
-          <option value="sniper1">スナイパー Lv1</option>
-          <option value="sniper2">スナイパー Lv2</option>
-          <option value="ninja1">ニンジャ Lv1</option>
-          <option value="ninja2">ニンジャ Lv2</option>
-        </select>
-      </div>
-      <div class="unit-card">
-        <div class="unit-title"><span>相手機2</span><span class="unit-mark">E2</span></div>
-        <select class="enemy-type" data-index="1" aria-label="相手機2のタイプ">
-          <option value="infighter1">インファイター Lv1</option>
-          <option value="infighter2">インファイター Lv2</option>
-          <option value="sniper1">スナイパー Lv1</option>
-          <option value="sniper2">スナイパー Lv2</option>
-          <option value="ninja1">ニンジャ Lv1</option>
-          <option value="ninja2">ニンジャ Lv2</option>
-        </select>
-      </div>
-      <div class="unit-card">
-        <div class="unit-title"><span>相手機3</span><span class="unit-mark">E3</span></div>
-        <select class="enemy-type" data-index="2" aria-label="相手機3のタイプ">
-          <option value="infighter1">インファイター Lv1</option>
-          <option value="infighter2">インファイター Lv2</option>
-          <option value="sniper1">スナイパー Lv1</option>
-          <option value="sniper2">スナイパー Lv2</option>
-          <option value="ninja1">ニンジャ Lv1</option>
-          <option value="ninja2">ニンジャ Lv2</option>
-        </select>
+      <label class="team-select-label" for="enemyTeamPreset">相手チーム</label>
+      <select id="enemyTeamPreset">
+        <option value="level1">Lv1 ファイターズ</option>
+        <option value="level2">Lv2 スナイパーズ</option>
+        <option value="level3">Lv3 シノビーズ</option>
+        <option value="level4">Lv4 スナイパーズ2</option>
+        <option value="level5">Lv5 ファイターズ2</option>
+        <option value="level6">Lv6 シノビーズ2</option>
+        <option value="custom">カスタム</option>
+      </select>
+      <p id="enemyTeamDescription" class="team-description"></p>
+
+      <div id="enemyCustomUnits" hidden>
+        <div class="unit-card">
+          <div class="unit-title"><span>相手機1</span><span class="unit-mark">E1</span></div>
+          <select class="enemy-type" data-index="0" aria-label="相手機1のタイプ">
+            <option value="infighter1">インファイター Lv1</option>
+            <option value="infighter2">インファイター Lv2</option>
+            <option value="sniper1">スナイパー Lv1</option>
+            <option value="sniper2">スナイパー Lv2</option>
+            <option value="ninja1">ニンジャ Lv1</option>
+            <option value="ninja2">ニンジャ Lv2</option>
+          </select>
+        </div>
+        <div class="unit-card">
+          <div class="unit-title"><span>相手機2</span><span class="unit-mark">E2</span></div>
+          <select class="enemy-type" data-index="1" aria-label="相手機2のタイプ">
+            <option value="infighter1">インファイター Lv1</option>
+            <option value="infighter2">インファイター Lv2</option>
+            <option value="sniper1">スナイパー Lv1</option>
+            <option value="sniper2">スナイパー Lv2</option>
+            <option value="ninja1">ニンジャ Lv1</option>
+            <option value="ninja2">ニンジャ Lv2</option>
+          </select>
+        </div>
+        <div class="unit-card">
+          <div class="unit-title"><span>相手機3</span><span class="unit-mark">E3</span></div>
+          <select class="enemy-type" data-index="2" aria-label="相手機3のタイプ">
+            <option value="infighter1">インファイター Lv1</option>
+            <option value="infighter2">インファイター Lv2</option>
+            <option value="sniper1">スナイパー Lv1</option>
+            <option value="sniper2">スナイパー Lv2</option>
+            <option value="ninja1">ニンジャ Lv1</option>
+            <option value="ninja2">ニンジャ Lv2</option>
+          </select>
+        </div>
       </div>
     </section>
 
@@ -386,6 +415,7 @@ const FIELD_WIDTH = 400;
 const FIELD_HEIGHT = 600;
 const OWN_ZONE_TOP = FIELD_HEIGHT * 2 / 3;
 const STORAGE_KEY = "progrobots-battle-config-v1";
+const ENEMY_TEAM_KEY = "progrobots-enemy-team-v1";
 
 const typeLabels = {
   infighter1: "インファイター Lv1",
@@ -394,6 +424,37 @@ const typeLabels = {
   sniper2: "スナイパー Lv2",
   ninja1: "ニンジャ Lv1",
   ninja2: "ニンジャ Lv2"
+};
+
+const enemyTeamPresets = {
+  level1: {
+    type: "infighter1",
+    description: "インファイター Lv1 × 3体"
+  },
+  level2: {
+    type: "sniper1",
+    description: "スナイパー Lv1 × 3体"
+  },
+  level3: {
+    type: "ninja1",
+    description: "ニンジャ Lv1 × 3体"
+  },
+  level4: {
+    type: "sniper2",
+    description: "スナイパー Lv2 × 3体"
+  },
+  level5: {
+    type: "infighter2",
+    description: "インファイター Lv2 × 3体"
+  },
+  level6: {
+    type: "ninja2",
+    description: "ニンジャ Lv2 × 3体"
+  },
+  custom: {
+    type: null,
+    description: "3体のタイプを自由に選択できます。"
+  }
 };
 
 const defaultConfig = {
@@ -441,11 +502,34 @@ function loadConfig() {
 }
 
 let config = loadConfig();
+
+function detectEnemyTeamPreset() {
+  const matchingPreset = Object.entries(enemyTeamPresets).find(([key, preset]) =>
+    key !== "custom" &&
+    config.enemy.every(unit => unit.type === preset.type)
+  );
+  return matchingPreset?.[0] || "custom";
+}
+
+const savedEnemyTeamPreset = localStorage.getItem(ENEMY_TEAM_KEY);
+let enemyTeamPreset = Object.hasOwn(enemyTeamPresets, savedEnemyTeamPreset)
+  ? savedEnemyTeamPreset
+  : detectEnemyTeamPreset();
+
+if (enemyTeamPreset !== "custom") {
+  config.enemy.forEach(unit => {
+    unit.type = enemyTeamPresets[enemyTeamPreset].type;
+  });
+}
+
 let selectedOwn = 0;
 
 const canvas = document.getElementById("selectionField");
 const ctx = canvas.getContext("2d");
 const placementStatus = document.getElementById("placementStatus");
+const enemyTeamSelect = document.getElementById("enemyTeamPreset");
+const enemyTeamDescription = document.getElementById("enemyTeamDescription");
+const enemyCustomUnits = document.getElementById("enemyCustomUnits");
 
 function drawField() {
   ctx.clearRect(0, 0, FIELD_WIDTH, FIELD_HEIGHT);
@@ -537,6 +621,10 @@ function drawRobot(unit, color, label, direction, selected) {
 }
 
 function refreshControls() {
+  enemyTeamSelect.value = enemyTeamPreset;
+  enemyTeamDescription.textContent = enemyTeamPresets[enemyTeamPreset].description;
+  enemyCustomUnits.hidden = enemyTeamPreset !== "custom";
+
   document.querySelectorAll(".enemy-type").forEach(select => {
     select.value = config.enemy[Number(select.dataset.index)].type;
   });
@@ -559,7 +647,23 @@ function selectOwnUnit(index) {
 
 function saveConfig() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  localStorage.setItem(ENEMY_TEAM_KEY, enemyTeamPreset);
 }
+
+enemyTeamSelect.addEventListener("change", event => {
+  enemyTeamPreset = event.target.value;
+  const preset = enemyTeamPresets[enemyTeamPreset];
+
+  if (preset.type) {
+    config.enemy.forEach(unit => {
+      unit.type = preset.type;
+    });
+  }
+
+  saveConfig();
+  refreshControls();
+  drawField();
+});
 
 document.querySelectorAll(".enemy-type").forEach(select => {
   select.addEventListener("change", event => {
