@@ -187,6 +187,8 @@
   .code-editor-actions {
     display: flex;
     justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
     margin-top: 10px;
   }
   .secondary-button {
@@ -258,9 +260,12 @@
         <button id="closeCodeEditor" class="secondary-button" type="button">閉じる</button>
       </div>
     </header>
-    <p class="code-editor-note">編集内容は自動保存され、次のバトル開始時から反映されます。</p>
+    <p class="code-editor-note">編集内容は自動保存され、次のバトル開始時から反映されます。JavaScriptファイルを端末から読み込んだり、編集中のコードを保存したりできます。</p>
     <textarea id="robotCodeEditor" aria-label="選択したロボットのJavaScriptコード" spellcheck="false"></textarea>
     <div class="code-editor-actions">
+      <input id="robotCodeFileInput" type="file" accept=".js,.txt,text/javascript,application/javascript,text/plain" hidden>
+      <button id="loadRobotCodeFile" class="secondary-button" type="button">ファイルから読み込む</button>
+      <button id="downloadRobotCode" class="secondary-button" type="button">ファイルをダウンロード</button>
       <button id="resetRobotCode" class="secondary-button" type="button">初期コードに戻す</button>
     </div>
   </section>
@@ -1586,6 +1591,61 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   document.getElementById("closeCodeEditor").addEventListener("click", closeCodeEditor);
+
+  const codeFileInput = document.getElementById("robotCodeFileInput");
+
+  document.getElementById("loadRobotCodeFile").addEventListener("click", () => {
+    if (editingRobotIndex === null) return;
+    codeFileInput.click();
+  });
+
+  codeFileInput.addEventListener("change", async event => {
+    const file = event.target.files?.[0];
+    if (!file || editingRobotIndex === null) return;
+
+    const index = editingRobotIndex;
+    const type = players[index].type;
+
+    try {
+      const source = await file.text();
+      robotCodes[index] = source;
+      localStorage.setItem(robotCodeStorageKey(index, type), source);
+
+      if (editingRobotIndex === index) {
+        editor.value = source;
+      }
+      document.getElementById("battleStatus").textContent =
+        `自機${index + 1}に「${file.name}」を読み込みました。次のバトルから反映されます。`;
+    } catch {
+      document.getElementById("battleStatus").textContent =
+        "ファイルを読み込めませんでした。";
+    } finally {
+      event.target.value = "";
+    }
+  });
+
+  document.getElementById("downloadRobotCode").addEventListener("click", () => {
+    if (editingRobotIndex === null) return;
+
+    const index = editingRobotIndex;
+    const type = players[index].type;
+    const sourceName = robotPrograms[type].split("/").pop();
+    const fileName = `progrobots-own${index + 1}-${sourceName}`;
+    const fileBlob = new Blob([editor.value], {
+      type: "text/javascript;charset=utf-8"
+    });
+    const downloadUrl = URL.createObjectURL(fileBlob);
+    const downloadLink = document.createElement("a");
+    downloadLink.href = downloadUrl;
+    downloadLink.download = fileName;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+    setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+
+    document.getElementById("battleStatus").textContent =
+      `自機${index + 1}のコードを「${fileName}」としてダウンロードしました。`;
+  });
 
   document.getElementById("resetRobotCode").addEventListener("click", async event => {
     if (editingRobotIndex === null) return;
