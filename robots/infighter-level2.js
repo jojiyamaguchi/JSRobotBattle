@@ -10,7 +10,8 @@ self.onmessage = ({ data }) => {
     bullet => bullet.color !== data.color && bullet.distance < 60
   );
 
-  if (nearbyBullet && data.energy >= 4) {
+  // 相手との距離が20以上のときだけ、敵弾への回避・防御を行う
+  if (target.distance >= 20 && nearbyBullet && data.energy >= 4) {
     // 弾丸が25px以内まで迫ったらシールドを優先する
     if (nearbyBullet.distance < 25) {
       postMessage({ action: { type: "shield" } });
