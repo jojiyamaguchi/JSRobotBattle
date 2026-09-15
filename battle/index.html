@@ -400,7 +400,9 @@ function initializeGame() {
     lastAction: null,
     speech: null,
     speechTimer: 0,
-    shield: null
+    shield: null,
+    gunTimer: 0,
+    gunAngle: 0
   });
   players = [
     ...battleConfig.own.map(unit => makePlayer(unit, "orange", 270)),
@@ -508,6 +510,11 @@ function checkRobotCollision(x, y, currentPlayerIndex) {
 function updateGame() {
   if (!gameRunning) return;
 
+  // 射撃後、短時間だけ銃身を表示する
+  players.forEach(player => {
+    if (player?.gunTimer > 0) player.gunTimer--;
+  });
+
   players.forEach((p, i) => {
     if (!p || !p.lastAction || !workers[i]) return;
     const a = p.lastAction;
@@ -569,6 +576,8 @@ function updateGame() {
         const vx = bulletSpeed * Math.cos(angleRad);
         const vy = bulletSpeed * Math.sin(angleRad);
         bullets.push({x: p.x + robotRadius * Math.cos(angleRad), y: p.y + robotRadius * Math.sin(angleRad), vx: vx, vy: vy, color: p.color});
+        p.gunAngle = 0;
+        p.gunTimer = 8;
       } else if (a.type === "turn") {
           let angle = a.dir || 45; // デフォルトで45度回転
           angle = Math.max(-45, Math.min(45, angle)); // 角度を-45から45の範囲に制限
@@ -941,6 +950,18 @@ function drawHpFrame(ctx, x, y, width, height, angle, value) {
   ctx.restore();
 }
 
+function drawGun(ctx, player) {
+  if (!player.gunTimer) return;
+
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  ctx.rotate((player.dir + (player.gunAngle || 0)) * Math.PI / 180);
+  ctx.fillStyle = "#252925";
+  // 機体正面から突き出す、幅2px・長さ4pxの銃身
+  ctx.fillRect(robotRadius, -1, 4, 2);
+  ctx.restore();
+}
+
 function getNoteIconBounds(player) {
   return {
     x: player.x + 15,
@@ -1191,6 +1212,7 @@ function drawGame() {
       ctx.fillRect(5, -4, 5, 2);
       ctx.fillRect(5, 3, 5, 2);
       ctx.restore();
+      drawGun(ctx, p);
 
       // エネルギーは従来どおりバーで表示
       drawMeterEnergy(ctx, p.x, p.y, p.energy, 'rgba(173, 255, 173, 0.5)');
