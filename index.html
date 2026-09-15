@@ -433,6 +433,7 @@ const OWN_ZONE_TOP = FIELD_HEIGHT * 2 / 3;
 const STORAGE_KEY = "progrobots-battle-config-v1";
 const ENEMY_TEAM_KEY = "progrobots-enemy-team-v1";
 const BATTLE_COUNT_KEY = "progrobots-battle-count-v1";
+const ACHIEVEMENT_UNLOCKS_KEY = "progrobots-achievement-unlocks-v1";
 
 const typeLabels = {
   infighter1: "インファイター Lv1",
@@ -447,9 +448,12 @@ const unlockRequirements = {
   infighter1: 0,
   sniper1: 1,
   infighter2: 3,
-  sniper2: 6,
-  ninja1: 9,
-  ninja2: 12
+  sniper2: 6
+};
+
+const achievementConditions = {
+  ninja1: "相手チームLv4に勝利で解放",
+  ninja2: "相手チームLv5に勝利で解放"
 };
 
 function loadBattleCount() {
@@ -457,10 +461,30 @@ function loadBattleCount() {
   return Number.isFinite(savedCount) && savedCount > 0 ? savedCount : 0;
 }
 
+function loadAchievementUnlocks() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(ACHIEVEMENT_UNLOCKS_KEY));
+    return {
+      ninja1: saved?.ninja1 === true,
+      ninja2: saved?.ninja2 === true
+    };
+  } catch {
+    return {ninja1: false, ninja2: false};
+  }
+}
+
 const battleCount = loadBattleCount();
+const achievementUnlocks = loadAchievementUnlocks();
 
 function isRobotUnlocked(type) {
+  if (Object.hasOwn(achievementConditions, type)) {
+    return achievementUnlocks[type];
+  }
   return battleCount >= unlockRequirements[type];
+}
+
+function unlockConditionLabel(type) {
+  return achievementConditions[type] || `${unlockRequirements[type]}戦で解放`;
 }
 
 const enemyTeamPresets = {
@@ -673,11 +697,10 @@ function refreshControls() {
     const index = Number(select.dataset.index);
 
     select.querySelectorAll("option").forEach(option => {
-      const requiredBattles = unlockRequirements[option.value];
       const locked = !isRobotUnlocked(option.value);
       option.disabled = locked;
       option.textContent = locked
-        ? `${typeLabels[option.value]}（${requiredBattles}戦で解放）`
+        ? `${typeLabels[option.value]}（${unlockConditionLabel(option.value)}）`
         : typeLabels[option.value];
     });
 
@@ -687,10 +710,23 @@ function refreshControls() {
   const nextUnlock = Object.entries(unlockRequirements)
     .filter(([, requiredBattles]) => requiredBattles > battleCount)
     .sort((a, b) => a[1] - b[1])[0];
+  const remainingChallenges = Object.entries(achievementConditions)
+    .filter(([type]) => !isRobotUnlocked(type))
+    .map(([type, condition]) => `${typeLabels[type]}：${condition}`);
 
-  unlockProgress.textContent = nextUnlock
-    ? `対戦回数：${battleCount}回　次は${nextUnlock[1]}回で${typeLabels[nextUnlock[0]]}をアンロック`
-    : `対戦回数：${battleCount}回　全機体アンロック済み！`;
+  const progressParts = [`対戦回数：${battleCount}回`];
+  if (nextUnlock) {
+    progressParts.push(
+      `次は${nextUnlock[1]}回で${typeLabels[nextUnlock[0]]}をアンロック`
+    );
+  } else if (remainingChallenges.length > 0) {
+    progressParts.push("対戦回数による解放は完了");
+  }
+  progressParts.push(...remainingChallenges);
+  if (!nextUnlock && remainingChallenges.length === 0) {
+    progressParts.push("全機体アンロック済み！");
+  }
+  unlockProgress.textContent = progressParts.join("　");
 
   document.querySelectorAll(".own-card").forEach(card => {
     card.classList.toggle("selected", Number(card.dataset.index) === selectedOwn);
