@@ -298,6 +298,39 @@ let defaultRobotSources = {};
 let workerObjectUrls = [];
 let entranceAnimationId = null;
 
+const BATTLE_COUNT_KEY = "progrobots-battle-count-v1";
+const robotUnlockRequirements = {
+  infighter1: 0,
+  sniper1: 1,
+  infighter2: 3,
+  sniper2: 6,
+  ninja1: 9,
+  ninja2: 12
+};
+const unlockNotices = {
+  1: "スナイパーLv1",
+  3: "インファイターLv2",
+  6: "スナイパーLv2",
+  9: "ニンジャLv1",
+  12: "ニンジャLv2"
+};
+
+function loadBattleCount() {
+  const savedCount = Number.parseInt(localStorage.getItem(BATTLE_COUNT_KEY), 10);
+  return Number.isFinite(savedCount) && savedCount > 0 ? savedCount : 0;
+}
+
+let battleCount = loadBattleCount();
+
+function isRobotUnlocked(type) {
+  return battleCount >= robotUnlockRequirements[type];
+}
+
+function recordBattleCompletion() {
+  battleCount += 1;
+  localStorage.setItem(BATTLE_COUNT_KEY, String(battleCount));
+  return unlockNotices[battleCount] || null;
+}
 
 const robotPrograms = {
   infighter1: "../robots/infighter-level1.js",
@@ -320,7 +353,7 @@ const robotTypeLabels = {
 const defaultBattleConfig = {
   own: [
     {type: "infighter1", x: 100, y: 500},
-    {type: "sniper1", x: 200, y: 500},
+    {type: "infighter1", x: 200, y: 500},
     {type: "infighter1", x: 300, y: 500}
   ],
   enemy: [
@@ -346,7 +379,10 @@ function loadBattleConfig() {
       return defaultBattleConfig;
     }
     return {
-      own: defaultBattleConfig.own.map((fallback, index) => normalizeUnit(saved.own[index], fallback)),
+      own: defaultBattleConfig.own.map((fallback, index) => {
+        const unit = normalizeUnit(saved.own[index], fallback);
+        return isRobotUnlocked(unit.type) ? unit : {...unit, type: "infighter1"};
+      }),
       enemy: defaultBattleConfig.enemy.map((fallback, index) => normalizeUnit(saved.enemy[index], fallback))
     };
   } catch {
@@ -1175,9 +1211,13 @@ function finishGame(message) {
   gameRunning = false;
   battleState = "finished";
   updateBattleControls();
+  const unlockedRobot = recordBattleCompletion();
 
   setTimeout(() => {
     alert(message);
+    if (unlockedRobot) {
+      alert(`${unlockedRobot}がアンロックされました！`);
+    }
     prepareBattle();
   }, 0);
 }
