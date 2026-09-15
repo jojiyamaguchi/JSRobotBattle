@@ -11,7 +11,13 @@ self.onmessage = ({ data }) => {
   }
 
   if (target.distance <= 2) {
-    postMessage({ action: { type: "punch" } });
+    // エネルギーが50以上あるときはパンチする
+    if (data.energy >= 50) {
+      postMessage({ action: { type: "punch" } });
+    } else {
+      // エネルギーが50未満のときはチャージする
+      postMessage({ action: { type: "charge" } });
+    }
     return;
   }
 
