@@ -352,16 +352,27 @@ function sleep(ms) {
 
 function emitEnergySmoke(player) {
   const rearAngle = (player.dir + 180) * Math.PI / 180;
-  const originX = player.x + robotRadius * 0.8 * Math.cos(rearAngle);
-  const originY = player.y + robotRadius * 0.8 * Math.sin(rearAngle);
+  const rearX = Math.cos(rearAngle);
+  const rearY = Math.sin(rearAngle);
+  const sideX = -rearY;
+  const sideY = rearX;
+
+  // ボディに隠れないよう、機体後端より外側から発生させる
+  const originDistance = robotRadius * 1.6;
+  const originX = player.x + originDistance * rearX;
+  const originY = player.y + originDistance * rearY;
 
   for (let i = 0; i < 2; i++) {
     const life = 34 + Math.random() * 20;
+    const exhaustSpeed = 0.35 + Math.random() * 0.35;
+    const sideSpread = (Math.random() - 0.5) * 0.35;
+
     smokeParticles.push({
-      x: originX + (Math.random() - 0.5) * 5,
-      y: originY + (Math.random() - 0.5) * 5,
-      vx: (Math.random() - 0.5) * 0.45,
-      vy: -0.35 - Math.random() * 0.45,
+      x: originX + sideX * (Math.random() - 0.5) * 5,
+      y: originY + sideY * (Math.random() - 0.5) * 5,
+      // 常に機体の後方へ流しつつ、少しだけ上昇させる
+      vx: rearX * exhaustSpeed + sideX * sideSpread,
+      vy: rearY * exhaustSpeed + sideY * sideSpread - 0.08,
       size: 2 + Math.random() * 2.5,
       life,
       maxLife: life
