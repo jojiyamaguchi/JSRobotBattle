@@ -1,5 +1,5 @@
 // progrobots: スナイパー Level 1
-// その場から最も近い敵を狙い、エネルギーが100のときだけ射撃します。移動はしません。
+// その場から最も近い敵を狙い、射撃します。移動はしません。
 
 self.onmessage = ({ data }) => {
   const target = data.players.find(player => player.color !== data.color);
@@ -10,7 +10,8 @@ self.onmessage = ({ data }) => {
     return;
   }
 
-  if (data.energy < 100) return;
-
-  postMessage({ action: { type: "fire" } });
+  // エネルギーが100以上あるときに射撃する
+  if (data.energy >= 100) {
+    postMessage({ action: { type: "fire" } });
+  }
 };
