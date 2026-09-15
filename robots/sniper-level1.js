@@ -10,8 +10,11 @@ self.onmessage = ({ data }) => {
     return;
   }
 
-  // エネルギーが100以上あるときに射撃する
+  // エネルギーが100以上あるときは射撃する
   if (data.energy >= 100) {
     postMessage({ action: { type: "fire" } });
+  } else {
+    // エネルギーが100未満のときはチャージする
+    postMessage({ action: { type: "charge" } });
   }
 };
