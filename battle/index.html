@@ -123,6 +123,21 @@
     margin: 8px 0;
     color: #596252;
   }
+  .battle-legend {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 4px 0 10px;
+    color: #596252;
+    font-size: 13px;
+  }
+  .hp-frame-sample {
+    width: 20px;
+    height: 20px;
+    border: 4px solid rgba(92, 202, 255, 0.95);
+    border-radius: 2px;
+    background: #f8fcff;
+  }
   @media (max-width: 560px) {
     body {
       padding: 12px;
@@ -161,6 +176,10 @@
 
   <button id="startButton">バトル開始</button>
   <p id="battleStatus" aria-live="polite"></p>
+  <div class="battle-legend" aria-label="表示の説明">
+    <span class="hp-frame-sample" aria-hidden="true"></span>
+    <span>水色の枠の太さ：残りHP</span>
+  </div>
 
   <canvas id="battlefield" width="400" height="600"></canvas>
 <div id="action-guide">
@@ -813,18 +832,23 @@ function drawMeterEnergy(ctx, x, y, value, color) {
   ctx.fillRect(x - width / 2, y + 20, width * percentage, height);
 }
 
-function drawMeterHp(ctx, x, y, value, color) {
-  const width = 30;
-  const height = 5;
-  const percentage = value / maxHP;
+function drawHpFrame(ctx, x, y, width, height, angle, value) {
+  if (value <= 0) return;
 
-  // Grey background
-  ctx.fillStyle = 'rgba(100, 100, 100, 0.1)';
-  ctx.fillRect(x - width / 2 + (width * percentage), y + 20, width * (1 - percentage), height);
+  const hpRatio = Math.max(0, Math.min(1, value / maxHP));
+  // HP2000 = 4px、HP500 = 0.5pxになる変化曲線
+  const lineWidth = 4 * Math.pow(hpRatio, 1.5);
 
-  // Colored portion
-  ctx.fillStyle = color;
-  ctx.fillRect(x - width / 2, y + 20, width * percentage, height);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle * Math.PI / 180);
+  ctx.strokeStyle = 'rgba(92, 202, 255, 0.95)';
+  ctx.lineWidth = lineWidth;
+  ctx.lineJoin = 'round';
+  ctx.shadowColor = 'rgba(92, 202, 255, 0.45)';
+  ctx.shadowBlur = Math.max(1, lineWidth);
+  ctx.strokeRect(-width / 2 - 2, -height / 2 - 2, width + 4, height + 4);
+  ctx.restore();
 }
 
 function drawGame() {
@@ -852,6 +876,7 @@ function drawGame() {
     if (p) {
       ctx.fillStyle = p.color;
       drawRotatedRect(ctx, p.x, p.y, 20, 20, p.dir);
+      drawHpFrame(ctx, p.x, p.y, 20, 20, p.dir, p.hp);
 
       ctx.fillStyle = "black";
       ctx.save();
@@ -861,9 +886,8 @@ function drawGame() {
       ctx.fillRect(5, 3, 5, 2);
       ctx.restore();
 
-      // Display energy using meter
+      // エネルギーは従来どおりバーで表示
       drawMeterEnergy(ctx, p.x, p.y, p.energy, 'rgba(173, 255, 173, 0.5)');
-      drawMeterHp(ctx, p.x, p.y - 5, p.hp, 'rgba(173, 173, 255, 0.5)');
 
       // Draw speech bubble
       if (p.speech) {
