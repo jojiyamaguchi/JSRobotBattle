@@ -427,6 +427,19 @@ function robotCodeStorageKey(index, type) {
   return `progrobots-robot-code-v1-${index}-${type}`;
 }
 
+async function fetchRobotSource(type, fresh = false) {
+  const sourceUrl = new URL(robotPrograms[type], window.location.href);
+  if (fresh) {
+    sourceUrl.searchParams.set("v", Date.now().toString());
+  }
+
+  const response = await fetch(sourceUrl, {cache: "no-store"});
+  if (!response.ok) {
+    throw new Error(`${robotTypeLabels[type]}のコードを読み込めませんでした。`);
+  }
+  return response.text();
+}
+
 async function loadRobotCodes() {
   const types = [...new Set([
     ...battleConfig.own.map(unit => unit.type),
@@ -434,11 +447,7 @@ async function loadRobotCodes() {
   ])];
 
   await Promise.all(types.map(async type => {
-    const response = await fetch(new URL(robotPrograms[type], window.location.href));
-    if (!response.ok) {
-      throw new Error(`${robotTypeLabels[type]}のコードを読み込めませんでした。`);
-    }
-    defaultRobotSources[type] = await response.text();
+    defaultRobotSources[type] = await fetchRobotSource(type);
   }));
 
   robotCodes = [
@@ -1460,14 +1469,32 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("closeCodeEditor").addEventListener("click", closeCodeEditor);
 
-  document.getElementById("resetRobotCode").addEventListener("click", () => {
+  document.getElementById("resetRobotCode").addEventListener("click", async event => {
     if (editingRobotIndex === null) return;
-    const type = players[editingRobotIndex].type;
-    robotCodes[editingRobotIndex] = defaultRobotSources[type];
-    editor.value = robotCodes[editingRobotIndex];
-    localStorage.removeItem(robotCodeStorageKey(editingRobotIndex, type));
-    document.getElementById("battleStatus").textContent =
-      `自機${editingRobotIndex + 1}のコードを初期状態に戻しました。`;
+
+    const resetButton = event.currentTarget;
+    const index = editingRobotIndex;
+    const type = players[index].type;
+    resetButton.disabled = true;
+    resetButton.textContent = "読み込み中…";
+
+    try {
+      const latestSource = await fetchRobotSource(type, true);
+      defaultRobotSources[type] = latestSource;
+      robotCodes[index] = latestSource;
+      localStorage.removeItem(robotCodeStorageKey(index, type));
+
+      if (editingRobotIndex === index) {
+        editor.value = latestSource;
+        document.getElementById("battleStatus").textContent =
+          `自機${index + 1}の初期コードを読み直しました。`;
+      }
+    } catch (error) {
+      document.getElementById("battleStatus").textContent = error.message;
+    } finally {
+      resetButton.disabled = false;
+      resetButton.textContent = "初期コードに戻す";
+    }
   });
 });
 
