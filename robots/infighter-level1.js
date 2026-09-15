@@ -11,11 +11,9 @@ self.onmessage = ({ data }) => {
   }
 
   if (target.distance <= 2) {
-    const action = data.energy >= 6 ? "punch" : "charge";
-    postMessage({ action: { type: action } });
+    postMessage({ action: { type: "punch" } });
     return;
   }
 
-  const action = data.energy >= 2 ? "move" : "charge";
-  postMessage({ action: { type: action, dir: 0 } });
+  postMessage({ action: { type: "move", dir: 0 } });
 };
