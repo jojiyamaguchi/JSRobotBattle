@@ -99,6 +99,21 @@
     border-top: 5px solid var(--orange);
   }
 
+  .unlock-progress {
+    margin: -6px 0 14px;
+    padding: 9px 10px;
+    border-radius: 9px;
+    color: #704715;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.45;
+    background: #fff4df;
+  }
+
+  select option:disabled {
+    color: #8b9187;
+  }
+
   .team-select-label {
     display: block;
     margin-bottom: 6px;
@@ -359,6 +374,7 @@
     <section class="panel own-panel">
       <h2>2. 自チームを編成・配置</h2>
       <p class="panel-intro">カードで配置する自機を選択し、タイプを決めます。</p>
+      <p id="unlockProgress" class="unlock-progress" aria-live="polite"></p>
 
       <div class="unit-card own-card selected" data-index="0">
         <div class="unit-title">
@@ -416,6 +432,7 @@ const FIELD_HEIGHT = 600;
 const OWN_ZONE_TOP = FIELD_HEIGHT * 2 / 3;
 const STORAGE_KEY = "progrobots-battle-config-v1";
 const ENEMY_TEAM_KEY = "progrobots-enemy-team-v1";
+const BATTLE_COUNT_KEY = "progrobots-battle-count-v1";
 
 const typeLabels = {
   infighter1: "インファイター Lv1",
@@ -425,6 +442,26 @@ const typeLabels = {
   ninja1: "ニンジャ Lv1",
   ninja2: "ニンジャ Lv2"
 };
+
+const unlockRequirements = {
+  infighter1: 0,
+  sniper1: 1,
+  infighter2: 3,
+  sniper2: 6,
+  ninja1: 9,
+  ninja2: 12
+};
+
+function loadBattleCount() {
+  const savedCount = Number.parseInt(localStorage.getItem(BATTLE_COUNT_KEY), 10);
+  return Number.isFinite(savedCount) && savedCount > 0 ? savedCount : 0;
+}
+
+const battleCount = loadBattleCount();
+
+function isRobotUnlocked(type) {
+  return battleCount >= unlockRequirements[type];
+}
 
 const enemyTeamPresets = {
   level1: {
@@ -460,7 +497,7 @@ const enemyTeamPresets = {
 const defaultConfig = {
   own: [
     {type: "infighter1", x: 100, y: 500},
-    {type: "sniper1", x: 200, y: 500},
+    {type: "infighter1", x: 200, y: 500},
     {type: "infighter1", x: 300, y: 500}
   ],
   enemy: [
@@ -477,7 +514,9 @@ function normalizeConfig(saved) {
     own: defaultConfig.own.map((fallback, index) => {
       const unit = saved?.own?.[index];
       return {
-        type: validType(unit?.type) ? unit.type : fallback.type,
+        type: validType(unit?.type) && isRobotUnlocked(unit.type)
+          ? unit.type
+          : fallback.type,
         x: Number.isFinite(unit?.x) ? Math.max(20, Math.min(380, unit.x)) : fallback.x,
         y: Number.isFinite(unit?.y) ? Math.max(420, Math.min(580, unit.y)) : fallback.y
       };
@@ -527,6 +566,7 @@ let selectedOwn = 0;
 const canvas = document.getElementById("selectionField");
 const ctx = canvas.getContext("2d");
 const placementStatus = document.getElementById("placementStatus");
+const unlockProgress = document.getElementById("unlockProgress");
 const enemyTeamSelect = document.getElementById("enemyTeamPreset");
 const enemyTeamDescription = document.getElementById("enemyTeamDescription");
 const enemyCustomUnits = document.getElementById("enemyCustomUnits");
@@ -630,8 +670,27 @@ function refreshControls() {
   });
 
   document.querySelectorAll(".own-type").forEach(select => {
-    select.value = config.own[Number(select.dataset.index)].type;
+    const index = Number(select.dataset.index);
+
+    select.querySelectorAll("option").forEach(option => {
+      const requiredBattles = unlockRequirements[option.value];
+      const locked = !isRobotUnlocked(option.value);
+      option.disabled = locked;
+      option.textContent = locked
+        ? `${typeLabels[option.value]}（${requiredBattles}戦で解放）`
+        : typeLabels[option.value];
+    });
+
+    select.value = config.own[index].type;
   });
+
+  const nextUnlock = Object.entries(unlockRequirements)
+    .filter(([, requiredBattles]) => requiredBattles > battleCount)
+    .sort((a, b) => a[1] - b[1])[0];
+
+  unlockProgress.textContent = nextUnlock
+    ? `対戦回数：${battleCount}回　次は${nextUnlock[1]}回で${typeLabels[nextUnlock[0]]}をアンロック`
+    : `対戦回数：${battleCount}回　全機体アンロック済み！`;
 
   document.querySelectorAll(".own-card").forEach(card => {
     card.classList.toggle("selected", Number(card.dataset.index) === selectedOwn);
@@ -676,6 +735,14 @@ document.querySelectorAll(".enemy-type").forEach(select => {
 document.querySelectorAll(".own-type").forEach(select => {
   select.addEventListener("change", event => {
     const index = Number(event.target.dataset.index);
+
+    if (!isRobotUnlocked(event.target.value)) {
+      event.target.value = config.own[index].type;
+      placementStatus.textContent =
+        typeLabels[event.target.value] + "はまだアンロックされていません。";
+      return;
+    }
+
     config.own[index].type = event.target.value;
     selectedOwn = index;
     saveConfig();
@@ -735,6 +802,13 @@ canvas.addEventListener("pointerdown", event => {
 });
 
 document.getElementById("startBattle").addEventListener("click", () => {
+  const lockedUnit = config.own.find(unit => !isRobotUnlocked(unit.type));
+  if (lockedUnit) {
+    placementStatus.textContent =
+      typeLabels[lockedUnit.type] + "はまだアンロックされていません。";
+    return;
+  }
+
   saveConfig();
   // 毎回最新のバトルページを読み込む
   window.location.href = "battle/?v=" + Date.now();
