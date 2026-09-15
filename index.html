@@ -281,21 +281,27 @@
         <div class="unit-title"><span>相手機1</span><span class="unit-mark">E1</span></div>
         <select class="enemy-type" data-index="0" aria-label="相手機1のタイプ">
           <option value="infighter1">インファイター Lv1</option>
+          <option value="infighter2">インファイター Lv2</option>
           <option value="sniper1">スナイパー Lv1</option>
+          <option value="sniper2">スナイパー Lv2</option>
         </select>
       </div>
       <div class="unit-card">
         <div class="unit-title"><span>相手機2</span><span class="unit-mark">E2</span></div>
         <select class="enemy-type" data-index="1" aria-label="相手機2のタイプ">
           <option value="infighter1">インファイター Lv1</option>
+          <option value="infighter2">インファイター Lv2</option>
           <option value="sniper1">スナイパー Lv1</option>
+          <option value="sniper2">スナイパー Lv2</option>
         </select>
       </div>
       <div class="unit-card">
         <div class="unit-title"><span>相手機3</span><span class="unit-mark">E3</span></div>
         <select class="enemy-type" data-index="2" aria-label="相手機3のタイプ">
           <option value="infighter1">インファイター Lv1</option>
+          <option value="infighter2">インファイター Lv2</option>
           <option value="sniper1">スナイパー Lv1</option>
+          <option value="sniper2">スナイパー Lv2</option>
         </select>
       </div>
     </section>
@@ -326,7 +332,9 @@
         </div>
         <select class="own-type" data-index="0" aria-label="自機1のタイプ">
           <option value="infighter1">インファイター Lv1</option>
+          <option value="infighter2">インファイター Lv2</option>
           <option value="sniper1">スナイパー Lv1</option>
+          <option value="sniper2">スナイパー Lv2</option>
         </select>
       </div>
       <div class="unit-card own-card" data-index="1">
@@ -336,7 +344,9 @@
         </div>
         <select class="own-type" data-index="1" aria-label="自機2のタイプ">
           <option value="infighter1">インファイター Lv1</option>
+          <option value="infighter2">インファイター Lv2</option>
           <option value="sniper1">スナイパー Lv1</option>
+          <option value="sniper2">スナイパー Lv2</option>
         </select>
       </div>
       <div class="unit-card own-card" data-index="2">
@@ -346,7 +356,9 @@
         </div>
         <select class="own-type" data-index="2" aria-label="自機3のタイプ">
           <option value="infighter1">インファイター Lv1</option>
+          <option value="infighter2">インファイター Lv2</option>
           <option value="sniper1">スナイパー Lv1</option>
+          <option value="sniper2">スナイパー Lv2</option>
         </select>
       </div>
     </section>
@@ -365,7 +377,9 @@ const STORAGE_KEY = "progrobots-battle-config-v1";
 
 const typeLabels = {
   infighter1: "インファイター Lv1",
-  sniper1: "スナイパー Lv1"
+  infighter2: "インファイター Lv2",
+  sniper1: "スナイパー Lv1",
+  sniper2: "スナイパー Lv2"
 };
 
 const defaultConfig = {
