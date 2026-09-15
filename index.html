@@ -1,960 +1,599 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-<title>progrobots | プログロボコン — バトルページ</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>progrobots | プログロボコン — セレクション</title>
 <style>
-  #battlefield {
-    display: block;
-    width: min(100%, 400px);
-    height: auto;
+  :root {
+    color-scheme: light;
+    --ink: #252823;
+    --muted: #687064;
+    --paper: #f5f3ee;
+    --card: #ffffff;
+    --orange: #e88124;
+    --orange-soft: #fff0df;
+    --green: #419254;
+    --green-soft: #e8f5ea;
+    --line: #d9ddd5;
+    --focus: #3856c8;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 24px;
+    color: var(--ink);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--paper);
+  }
+
+  .page-shell {
+    width: min(100%, 1080px);
+    margin: 0 auto;
+  }
+
+  .page-header {
+    margin-bottom: 24px;
+  }
+
+  .page-header h1 {
+    margin: 0;
+    font-size: clamp(28px, 5vw, 48px);
+    letter-spacing: -0.04em;
+  }
+
+  .page-header h1 small {
+    margin-left: 0.4em;
+    font-size: 0.42em;
+    letter-spacing: 0;
+  }
+
+  .page-header p {
+    max-width: 680px;
+    margin: 8px 0 0;
+    color: var(--muted);
+  }
+
+  .selection-layout {
+    display: grid;
+    grid-template-columns: minmax(210px, 1fr) 402px minmax(230px, 1fr);
+    gap: 18px;
+    align-items: start;
+  }
+
+  .panel,
+  .field-panel {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--card);
+    box-shadow: 0 8px 24px rgba(33, 38, 30, 0.06);
+  }
+
+  .panel {
+    padding: 16px;
+  }
+
+  .panel h2,
+  .field-panel h2 {
+    margin: 0;
+    font-size: 18px;
+  }
+
+  .panel-intro {
+    min-height: 3em;
+    margin: 6px 0 16px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .enemy-panel {
+    border-top: 5px solid var(--green);
+  }
+
+  .own-panel {
+    border-top: 5px solid var(--orange);
+  }
+
+  .unit-card {
+    display: grid;
+    gap: 8px;
     margin-top: 10px;
-    border: 1px solid black;
+    padding: 12px;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    background: #f7f8f5;
+    transition: border-color 120ms, background 120ms;
   }
-  .team-container {
+
+  .unit-card.selected {
+    border-color: var(--focus);
+    background: #eef1ff;
+  }
+
+  .unit-title {
     display: flex;
-    gap: 10px;
-    margin-bottom: 10px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-weight: 700;
   }
-  .team-container input[type='file'] {
-    width: 200px;
+
+  .unit-focus {
+    padding: 0;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+    background: transparent;
+    cursor: pointer;
   }
-  .meter {
-    width: 100px;
-    height: 10px;
-    background-color: #ddd;
-    position: relative;
+
+  .unit-mark {
+    display: inline-grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    border-radius: 50%;
+    color: white;
+    font-size: 12px;
+  }
+
+  .enemy-panel .unit-mark {
+    background: var(--green);
+  }
+
+  .own-panel .unit-mark {
+    background: var(--orange);
+  }
+
+  select {
+    width: 100%;
+    min-height: 42px;
+    padding: 8px 10px;
+    border: 1px solid #bfc6ba;
+    border-radius: 9px;
+    color: var(--ink);
+    font: inherit;
+    background: white;
+  }
+
+  .field-panel {
     overflow: hidden;
   }
-  .meter span {
+
+  .field-heading {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .field-heading p {
+    margin: 5px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  #selectionField {
     display: block;
-    height: 100%;
+    width: 100%;
+    height: auto;
+    touch-action: none;
+    background: white;
+    cursor: crosshair;
   }
-  .speech-bubble {
-    position: absolute;
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid black;
-    border-radius: 5px;
-    padding: 5px;
-    font-size: 12px;
-    z-index: 10;
-    pointer-events: none; /* Prevent interaction */
+
+  #placementStatus {
+    min-height: 3.2em;
+    margin: 0;
+    padding: 10px 14px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 13px;
   }
-  /* ▼ ここからアクション説明用 */
-  #action-guide {
-    margin-top: 20px;
-    padding: 15px;
-    border-top: 2px solid #333;
-    font-family: monospace;
-    background-color: #f9f9f9;
+
+  .actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 22px;
   }
-  #action-guide h3 {
-    margin-bottom: 10px;
+
+  #startBattle {
+    min-width: min(100%, 320px);
+    min-height: 52px;
+    padding: 0 24px;
+    border: 0;
+    border-radius: 999px;
+    color: white;
+    font: inherit;
+    font-weight: 800;
+    font-size: 17px;
+    background: #30382b;
+    box-shadow: 0 8px 18px rgba(35, 42, 31, 0.18);
+    cursor: pointer;
   }
-  .action-block {
-    margin-bottom: 20px;
+
+  #startBattle:hover {
+    background: #171c15;
   }
-  .action-block code {
-    display: block;
-    background: #eee;
-    padding: 5px;
-    margin-top: 5px;
+
+  button:focus-visible,
+  select:focus-visible,
+  canvas:focus-visible {
+    outline: 3px solid #91a5ff;
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 900px) {
+    body {
+      padding: 14px;
+    }
+
+    .selection-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .enemy-panel {
+      order: 1;
+    }
+
+    .field-panel {
+      order: 2;
+      width: min(100%, 402px);
+      margin: 0 auto;
+    }
+
+    .own-panel {
+      order: 3;
+    }
+
+    .panel-intro {
+      min-height: 0;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .page-header h1 small {
+      display: block;
+      margin: 2px 0 0;
+      font-size: 0.48em;
+    }
   }
 </style>
 </head>
 <body>
+<main class="page-shell">
+  <header class="page-header">
+    <h1>progrobots <small>プログロボコン</small></h1>
+    <p>ロボットのタイプと初期配置を決めて、3対3のプログラムバトルに挑みます。</p>
+  </header>
 
-<h1>progrobots <small>プログロボコン</small></h1>
-<p>バトルページ</p>
+  <div class="selection-layout">
+    <section class="panel enemy-panel">
+      <h2>1. 相手チームを選択</h2>
+      <p class="panel-intro">相手3体のタイプを選びます。選択結果はフィールド上部に表示されます。</p>
 
-<div class="team-container">
-  <div>
-    <h2>自チーム（オレンジ）</h2>
-    <input type="file" id="teamA_robot1" accept=".js">
-    <input type="file" id="teamA_robot2" accept=".js">
-    <input type="file" id="teamA_robot3" accept=".js">
-  </div>
-</div>
+      <div class="unit-card">
+        <div class="unit-title"><span>相手機1</span><span class="unit-mark">E1</span></div>
+        <select class="enemy-type" data-index="0" aria-label="相手機1のタイプ">
+          <option value="infighter1">インファイター Lv1</option>
+          <option value="sniper1">スナイパー Lv1</option>
+        </select>
+      </div>
+      <div class="unit-card">
+        <div class="unit-title"><span>相手機2</span><span class="unit-mark">E2</span></div>
+        <select class="enemy-type" data-index="1" aria-label="相手機2のタイプ">
+          <option value="infighter1">インファイター Lv1</option>
+          <option value="sniper1">スナイパー Lv1</option>
+        </select>
+      </div>
+      <div class="unit-card">
+        <div class="unit-title"><span>相手機3</span><span class="unit-mark">E3</span></div>
+        <select class="enemy-type" data-index="2" aria-label="相手機3のタイプ">
+          <option value="infighter1">インファイター Lv1</option>
+          <option value="sniper1">スナイパー Lv1</option>
+        </select>
+      </div>
+    </section>
 
-<div class="team-container">
-  <div>
-    <h2>相手チーム（グリーン）</h2>
-    <input type="file" id="teamB_robot1" accept=".js">
-    <input type="file" id="teamB_robot2" accept=".js">
-    <input type="file" id="teamB_robot3" accept=".js">
-  </div>
-</div>
+    <section class="field-panel">
+      <div class="field-heading">
+        <h2>初期配置</h2>
+        <p>自機を選び、オレンジ色のエリアをタップして配置します。</p>
+      </div>
+      <canvas
+        id="selectionField"
+        width="400"
+        height="600"
+        tabindex="0"
+        aria-label="上部が相手チーム、下部が自チームの配置フィールド"
+      ></canvas>
+      <p id="placementStatus" aria-live="polite">自機1を選択中です。下のオレンジ色のエリアをタップしてください。</p>
+    </section>
 
-<button id="startButton">Start Game</button>
+    <section class="panel own-panel">
+      <h2>2. 自チームを編成・配置</h2>
+      <p class="panel-intro">カードで配置する自機を選択し、タイプを決めます。</p>
 
-<canvas id="battlefield" width="400" height="600"></canvas>
-<div id="action-guide">
-  <h3>ロボット説明</h3>
-  <div class="action-block">
-    <robot>
-    <br>HP: 2000
-    <br>エネルギー上限: 100
-    <br>ロボットはエネルギーを消費しながら行動します。行動した場合もしなかった場合も、常にエネルギーを1回復します。
-  </div>
-
-  <h3>アクション一覧</h3>
-
-  <div class="action-block">
-    ＜move＞
-    <br>ロボットを移動させます
-    <br>&nbsp;&nbsp;消費エネルギー 2
-    <br>指定可能なパラメーター:
-    <br>&nbsp;&nbsp;dir: 方向 (度) [省略した場合は0度]
-    <code>
-    postMessage({action:{type:"move", dir:90}});
-    </code>
-  </div>
-
-  <div class="action-block">
-    ＜turn＞
-    <br>向きを変更します (-45〜45度)
-    <br>&nbsp;&nbsp;消費エネルギー 2
-    <br>指定可能なパラメーター:
-    <br>&nbsp;&nbsp;dir: 回転角度 (度) [省略した場合は45度]
-    <code>
-    postMessage({action:{type:"turn", dir:30}});
-    </code>
-  </div>
-
-  <div class="action-block">
-    ＜fire＞
-    <br>エネルギー弾を発射します
-    <br>&nbsp;&nbsp;消費エネルギー 40
-    <br>&nbsp;&nbsp;ダメージ 100
-    <br>指定可能なパラメーター: なし
-    <code>
-    postMessage({action:{type:"fire"}});
-    </code>
-  </div>
-
-  <div class="action-block">
-    ＜punch＞
-    <br>近距離格闘攻撃します。消費エネルギーが低いので強力な連続攻撃が可能です。
-    <br>&nbsp;&nbsp;消費エネルギー 6
-    <br>&nbsp;&nbsp;ダメージ 40
-    <br>指定可能なパラメーター: なし
-    <code>
-    postMessage({action:{type:"punch"}});
-    </code>
-  </div>
-
-  <div class="action-block">
-    ＜shield＞
-    <br>シールドを展開しダメージを軽減します
-    <br>シールドは銃弾によるダメージを1/10に軽減します。格闘によるダメージは軽減できません。
-    <br>&nbsp;&nbsp;消費エネルギー 4
-    <br>指定可能なパラメーター: なし
-    <code>
-    postMessage({action:{type:"shield"}});
-    </code>
+      <div class="unit-card own-card selected" data-index="0">
+        <div class="unit-title">
+          <button class="unit-focus" type="button" data-index="0">自機1を選択</button>
+          <span class="unit-mark">A1</span>
+        </div>
+        <select class="own-type" data-index="0" aria-label="自機1のタイプ">
+          <option value="infighter1">インファイター Lv1</option>
+          <option value="sniper1">スナイパー Lv1</option>
+        </select>
+      </div>
+      <div class="unit-card own-card" data-index="1">
+        <div class="unit-title">
+          <button class="unit-focus" type="button" data-index="1">自機2を選択</button>
+          <span class="unit-mark">A2</span>
+        </div>
+        <select class="own-type" data-index="1" aria-label="自機2のタイプ">
+          <option value="infighter1">インファイター Lv1</option>
+          <option value="sniper1">スナイパー Lv1</option>
+        </select>
+      </div>
+      <div class="unit-card own-card" data-index="2">
+        <div class="unit-title">
+          <button class="unit-focus" type="button" data-index="2">自機3を選択</button>
+          <span class="unit-mark">A3</span>
+        </div>
+        <select class="own-type" data-index="2" aria-label="自機3のタイプ">
+          <option value="infighter1">インファイター Lv1</option>
+          <option value="sniper1">スナイパー Lv1</option>
+        </select>
+      </div>
+    </section>
   </div>
 
-  <div class="action-block">
-    ＜decoy＞
-    <br>デコイ（おとり）を作成します。
-    <br>デコイは行動できませんが、完全に１つの機体として認識されます。デコイのHPは1です。
-    <br>&nbsp;&nbsp;消費エネルギー 60
-    <br>指定可能なパラメーター:
-    <br>&nbsp;&nbsp;dir: デコイ射出方向 (度) [省略した場合は0度]
-    <br>&nbsp;&nbsp;color: デコイの色 [省略した場合は自機と同じ色]
-    <code>
-    postMessage({action:{type:"decoy", color:"orange"}});
-    </code>
+  <div class="actions">
+    <button id="startBattle" type="button">この編成でバトルへ</button>
   </div>
-  
-  <div class="action-block">
-    ＜charge＞
-    <br>エネルギーを2ポイントチャージします。
-    <code>
-    postMessage({action:{type:"charge"}});
-    </code>
-  </div>
-</div>
+</main>
 
 <script>
-let players = [];
-let workers = [];
-let bullets = [];
-let gameRunning = false;
-let ctx;
-const maxEnergy = 100;
-const maxHP = 2000;
-const battlefieldWidth = 400;
-const battlefieldHeight = 600;
-const robotRadius = 10; // ロボットの半径
-let sparks = []; // 火花エフェクトの配列
-let explosions = []; // 爆発エフェクトの配列
-let gameTime = 0;
-let maxGameTime = 180; // 180 seconds
-let punches = []; // punchの配列
-let sleepTime = 10; // sleep time in ms
-let speechBubbles = []; // Speech bubble array
-let shields = []; // シールドの配列
-let shieldHits = []; // シールドヒットエフェクトの配列
-let punchVisuals = [];
-let ripples = []; // 波紋の配列
-let decoys = []; // Decoy array
-let endMessageShown = false;
+const FIELD_WIDTH = 400;
+const FIELD_HEIGHT = 600;
+const OWN_ZONE_TOP = FIELD_HEIGHT * 2 / 3;
+const STORAGE_KEY = "progrobots-battle-config-v1";
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+const typeLabels = {
+  infighter1: "インファイター Lv1",
+  sniper1: "スナイパー Lv1"
+};
 
-function initializeGame() {
-  players = [
-    {file: null, x: 100, y: 500, color: "orange", dir: 270, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
-    {file: null, x: 200, y: 500, color: "orange", dir: 270, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
-    {file: null, x: 300, y: 500, color: "orange", dir: 270, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
-    {file: null, x: 100, y: 100, color: "green", dir: 90, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
-    {file: null, x: 200, y: 100, color: "green", dir: 90, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
-    {file: null, x: 300, y: 100, color: "green", dir: 90, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
-  ];
-  workers = [];
-  bullets = [];
-  gameRunning = false;
-  sparks = []; // 初期化
-  explosions = []; // 初期化
-  punches = []; // 初期化
-  speechBubbles = []; // Initialize speech bubbles
-  shields = []; // Initialize shields
-  shieldHits = []; // Initialize shield hits
-  punchVisuals = [];
-  ripples = [];
-  decoys = []; // Initialize decoys
-  gameTime = 0;
-  endMessageShown = false;
-}
+const defaultConfig = {
+  own: [
+    {type: "infighter1", x: 100, y: 500},
+    {type: "sniper1", x: 200, y: 500},
+    {type: "infighter1", x: 300, y: 500}
+  ],
+  enemy: [
+    {type: "infighter1", x: 100, y: 100},
+    {type: "sniper1", x: 200, y: 100},
+    {type: "infighter1", x: 300, y: 100}
+  ]
+};
 
-async function loadPlayers() {
-  const files = [
-    document.getElementById("teamA_robot1").files[0],
-    document.getElementById("teamA_robot2").files[0],
-    document.getElementById("teamA_robot3").files[0],
-    document.getElementById("teamB_robot1").files[0],
-    document.getElementById("teamB_robot2").files[0],
-    document.getElementById("teamB_robot3").files[0],
-  ];
+function normalizeConfig(saved) {
+  const validType = type => Object.hasOwn(typeLabels, type);
 
-  workers = [];
-
-  for (let i = 0; i < players.length; i++) {
-    players[i].file = files[i];
-    if (files[i]) {
-      const code = await files[i].text();
-      const blob = new Blob([code], {type: "application/javascript"});
-      const worker = new Worker(URL.createObjectURL(blob));
-      worker.onmessage = (e) => {
-        const { action } = e.data;
-        players[i].lastAction = action;
+  return {
+    own: defaultConfig.own.map((fallback, index) => {
+      const unit = saved?.own?.[index];
+      return {
+        type: validType(unit?.type) ? unit.type : fallback.type,
+        x: Number.isFinite(unit?.x) ? Math.max(20, Math.min(380, unit.x)) : fallback.x,
+        y: Number.isFinite(unit?.y) ? Math.max(420, Math.min(580, unit.y)) : fallback.y
       };
-      workers.push(worker);
-    } else {
-      workers.push(null); // Keep workers array aligned with players.
-    }
+    }),
+    enemy: defaultConfig.enemy.map((fallback, index) => {
+      const unit = saved?.enemy?.[index];
+      return {
+        type: validType(unit?.type) ? unit.type : fallback.type,
+        x: fallback.x,
+        y: fallback.y
+      };
+    })
+  };
+}
+
+function loadConfig() {
+  try {
+    return normalizeConfig(JSON.parse(localStorage.getItem(STORAGE_KEY)));
+  } catch {
+    return normalizeConfig(null);
   }
 }
 
-// ロボット同士の衝突をチェックする関数
-function checkRobotCollision(x, y, currentPlayerIndex) {
-    let collision = false;
-    for (let i = 0; i < players.length; i++) {
-        if (i === currentPlayerIndex || !players[i]) continue; // Skip current robot
-        const dx = x - players[i].x;
-        const dy = y - players[i].y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance < 2 * robotRadius) {
-            collision = true; // 衝突あり
-        }
-    }
-    return collision;
-}
+let config = loadConfig();
+let selectedOwn = 0;
 
-function updateGame() {
-  if (!gameRunning) return;
+const canvas = document.getElementById("selectionField");
+const ctx = canvas.getContext("2d");
+const placementStatus = document.getElementById("placementStatus");
 
-  players.forEach((p, i) => {
-    if (!p || !p.lastAction || !workers[i]) return;
-    const a = p.lastAction;
+function drawField() {
+  ctx.clearRect(0, 0, FIELD_WIDTH, FIELD_HEIGHT);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, FIELD_WIDTH, FIELD_HEIGHT);
 
-    let energyCost = 0;
-
-    if (a.type === "move") {
-      energyCost = 2;
-    } else if (a.type === "turn") {
-        energyCost = 2;
-    } else if (a.type === "fire") {
-      energyCost = 40;
-    } else if (a.type === "punch") {
-        energyCost = 6;
-    } else if (a.type === "shield") {
-        energyCost = 4;
-    } else if (a.type === "decoy") {
-        energyCost = 60;
-    } else if (a.type === "speak") {
-        energyCost = 0; // No energy cost for speaking
-    } else if (a.type === "charge") {
-        energyCost = 0; // No energy cost for charge
-    } 
-
-    if (p.energy >= energyCost) {
-      p.energy -= energyCost;
-
-      if (a.type === "move") {
-        const speed = 1;
-        let dir = a.dir;
-        if (dir === undefined) {
-          dir = 0;
-        }
-        const angleDeg = p.dir - dir;
-        const angleRad = angleDeg * Math.PI / 180;
-        const dx = speed * Math.cos(angleRad);
-        const dy = speed * Math.sin(angleRad);
-
-        let newX = p.x + dx;
-        let newY = p.y + dy;
-
-        // Boundaries check
-        if (newX < 0) newX = 0;
-        if (newX > battlefieldWidth) newX = battlefieldWidth;
-        if (newY < 0) newY = 0;
-        if (newY > battlefieldHeight) newY = battlefieldHeight;
-
-        // 他のロボットとの衝突チェック
-        if (!checkRobotCollision(newX, newY, i)) {
-            p.x = newX;
-            p.y = newY;
-        } else {
-            p.energy += energyCost; // 移動失敗、エネルギーを戻す
-        }
-
-      } else if (a.type === "fire") {
-        const bulletSpeed = 5;
-        const angleRad = p.dir * Math.PI / 180;
-        const vx = bulletSpeed * Math.cos(angleRad);
-        const vy = bulletSpeed * Math.sin(angleRad);
-        bullets.push({x: p.x + robotRadius * Math.cos(angleRad), y: p.y + robotRadius * Math.sin(angleRad), vx: vx, vy: vy, color: p.color});
-      } else if (a.type === "turn") {
-          let angle = a.dir || 45; // デフォルトで45度回転
-          angle = Math.max(-45, Math.min(45, angle)); // 角度を-45から45の範囲に制限
-          p.dir += angle;
-          p.dir = (p.dir + 360) % 360; // 角度を0-360の範囲に保つ
-      } else if (a.type === "punch") {  
-        const punchSize = robotRadius;
-        const angleRad = p.dir * Math.PI / 180;
-        const punchX = p.x + robotRadius * Math.cos(angleRad);
-        const punchY = p.y + robotRadius * Math.sin(angleRad);
-
-        punches.push({
-          x: punchX,
-          y: punchY,
-          color: p.color,
-          size: punchSize,
-          dir: p.dir,
-          life: 1,
-          source: i, // punchを実行したロボットのindex
-        });
-
-        let punchStartSide = Math.random() < 0.5 ? -1 : 1;
-        let punchEndSide = Math.random() < 0.5 ? -1 : 1;
-        let punchStartPos = Math.random();
-        let punchEndPos = Math.random();
-        const pSX = punchX + (robotRadius * punchStartPos) * Math.cos(angleRad - (punchStartSide * 90 * Math.PI / 180));
-        const pSY = punchY + (robotRadius * punchStartPos) * Math.sin(angleRad - (punchStartSide * 90 * Math.PI / 180));
-        let pEX = punchX + punchSize * Math.cos(angleRad);
-        let pEY = punchY + punchSize * Math.sin(angleRad);
-        pEX = pEX + (robotRadius * punchEndPos) * Math.cos(angleRad - (punchEndSide * 90 * Math.PI / 180));
-        pEY = pEY + (robotRadius * punchEndPos) * Math.sin(angleRad - (punchEndSide * 90 * Math.PI / 180));
-
-        punchVisuals.push({
-            sx: pSX,
-            sy: pSY,
-            ex: pEX,
-            ey: pEY,
-            dir: p.dir,
-            color: p.color,
-            clockWise: punchStartSide < 0 ? true : false,
-            life: 30,
-        });
-        // // パンチの波紋
-        // ripples.push({
-        //     x: punchX,
-        //     y: punchY,
-        //     color: 'rgba(173, 255, 173,0.5)',
-        //     size: 10,
-        //     life: 10
-        // });
-
-      } else if (a.type === "speak") {
-          // Display speech bubble
-          p.speech = a.text || "...";
-          p.speechTimer = 60; // 1 second (assuming 60 frames per second)
-      } else if (a.type === "shield") {
-          p.shield = { life: 50 };
-      } else if (a.type === "decoy") {
-        const distance = 60;
-        let dir = a.dir;
-        if (dir === undefined) {
-          dir = 0;
-        }
-        const angleDeg = p.dir - dir;
-        const angleRad = angleDeg * Math.PI / 180;
-        const decoyX = p.x + distance * Math.cos(angleRad);
-        const decoyY = p.y + distance * Math.sin(angleRad);
-
-        if (decoyX >= 0 && decoyX <= battlefieldWidth && decoyY >= 0 && decoyY <= battlefieldHeight) {
-          const decoyColor = a.color || p.color;
-          decoys.push({
-            x: decoyX,
-            y: decoyY,
-            color: decoyColor,
-            size: 1,
-            angle: p.dir,
-            growthRate: robotRadius / 60,
-            rotationSpeed: 360 / 60,
-            creatorIndex: i,
-            createdFrame: gameTime
-          });
-        } else {
-          p.energy += energyCost; // Refund energy
-        }
-      } else if (a.type === "charge") {
-        p.energy = Math.min(p.energy + 1, maxEnergy); // Charge Energy
-      }
-    } 
-    
-    p.energy = Math.min(p.energy + 1, maxEnergy); // Recover energy
-    p.lastAction = null; // Reset last action to prevent repeating
-
-  });
-
-  bullets.forEach(b => {
-    b.x += b.vx;
-    b.y += b.vy;
-  });
-  bullets = bullets.filter(b => b.x >= 0 && b.x <= battlefieldWidth && b.y >= 0 && b.y <= battlefieldHeight);
-
-    // Punchの当たり判定とダメージ処理
-    punches.forEach(punch => {
-        players.forEach((player, i) => {
-            if (i !== punch.source && player) { // punchの本人以外
-                const dx = player.x - punch.x;
-                const dy = player.y - punch.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                if (dist < punch.size + robotRadius) {
-                    
-                    // 衝突点を計算
-                    let dx = punch.x - player.x;
-                    let dy = punch.y - player.y;
-                    let len = Math.sqrt(dx*dx + dy*dy) || 1;
-                    let contactX = player.x + dx / len * robotRadius;
-                    let contactY = player.y + dy / len * robotRadius;
-          
-                    // シールドがあればダメージを半減
-                    let damage = 40;
-                    // if (player.shield) {
-                    //   damage /= 10;
-
-                    //   // シールドに当たったエフェクト
-                    //   shieldHits.push({
-                    //     x: contactX,
-                    //     y: contactY,
-                    //     size: 10,
-                    //     life: 10
-                    //   });
-                    // }
-                    player.hp -= damage;
-
-                    // 火花エフェクト
-                    if (!player.shield) {
-                      // 衝突点を中心に火花を発生させる
-                      for (let k = 0; k < 5; k++) {
-                        sparks.push({
-                          x: contactX,
-                          y: contactY,
-                          vx: (Math.random() - 0.5) * 3, // x方向の速度
-                          vy: (Math.random() - 0.5) * 3, // y方向の速度
-                          size: Math.random() * 2 + 1, // サイズ
-                          color: 'rgba(255, 200, 0, 0.8)' // 色
-                        });
-                      }
-                    }
-                    
-                }
-            }
-        });
-    });
-  // 最後にパンチ寿命更新
-  punches = punches.filter(p => --p.life > 0);
-
-  // Collision detection
-  for (let i = 0; i < players.length; i++) {
-    if (!players[i]) continue; // Skip if robot is destroyed
-    for (let j = 0; j < bullets.length; j++) {
-      if (
-          Math.abs(players[i].x - bullets[j].x) < 10 &&
-          Math.abs(players[i].y - bullets[j].y) < 10) {
-
-        // シールドがあればダメージを半減
-        let damage = 100;
-        if (players[i].shield) {
-            damage /= 10;
-
-            // シールドに当たったエフェクト
-            shieldHits.push({
-                x: bullets[j].x,
-                y: bullets[j].y,
-                size: 10,
-                life: 10
-            });
-        }
-        players[i].hp -= damage;
-
-         // 火花エフェクト
-        if (!players[i].shield) {
-            for (let k = 0; k < 5; k++) {
-                sparks.push({
-                    x: bullets[j].x,
-                    y: bullets[j].y,
-                    vx: (Math.random() - 0.5) * 3, // x方向の速度
-                    vy: (Math.random() - 0.5) * 3, // y方向の速度
-                    size: Math.random() * 2 + 1, // サイズ
-                    color: 'rgba(255, 200, 0, 0.8)' // 色
-                });
-            }
-        }
-
-        bullets.splice(j, 1); // Remove bullet
-        j--; // Adjust index after removing
-
-      }
-    }
-  }
-
-   // 火花と爆発の更新
-    sparks.forEach(spark => {
-        spark.x += spark.vx;
-        spark.y += spark.vy;
-        spark.size -= 0.05; // 徐々に小さく
-    });
-
-    explosions.forEach(explosion => {
-        explosion.x += explosion.vx;
-        explosion.y += explosion.vy;
-        explosion.size -= 0.1; // 徐々に小さく
-    });
-
-     // シールドヒットエフェクトの更新
-    shieldHits.forEach(shieldHit => {
-        shieldHit.size += 0.5; // 徐々に大きく
-        shieldHit.life--; // 寿命を減らす
-    });
-
-    ripples.forEach(ripple => {
-        ripple.size += 0.5; // 徐々に大きく
-        ripple.life--; // 寿命を減らす
-    });
-
-    punchVisuals.forEach(punchVisual => {
-        punchVisual.life--; // 寿命を減らす
-    });
-
-    // 寿命が尽きたパーティクルを削除
-    sparks = sparks.filter(spark => spark.size > 0);
-    explosions = explosions.filter(explosion => explosion.size > 0);
-    shieldHits = shieldHits.filter(shieldHit => shieldHit.life > 0);
-    ripples = ripples.filter(ripple => ripple.life > 0);
-    punchVisuals = punchVisuals.filter(punchVisual => punchVisual.life > 0);
-
-
-  // Check for game over
-  const teamAAlive = players.slice(0, 3).filter(p => p !== null).length > 0;
-  const teamBAlive = players.slice(3, 6).filter(p => p !== null).length > 0;
-  if (!teamAAlive && !teamBAlive) {
-    //gameRunning = false;
-    if(!endMessageShown) {
-      endMessageShown = true;
-      alert("Draw!");
-    }
-  }else if (!teamAAlive || !teamBAlive) {
-    // gameRunning = false;
-    if(!endMessageShown) {
-      endMessageShown = true;
-      alert(teamAAlive ? "Team A wins!" : "Team B wins!");
-    }
-  }
-
-  gameTime++;
-  if (gameTime / 60 > maxGameTime) {
-    //gameRunning = false;  
-    if(!endMessageShown) {
-      endMessageShown = true;
-      alert("Draw!");
-    }
-  }
-
-  // Update speech bubble timers
-    players.forEach(p => {
-        if (p && p.speechTimer > 0) {
-            p.speechTimer--;
-            if (p.speechTimer === 0) {
-                p.speech = null; // Clear speech when timer runs out
-            }
-        }
-    });
-
-    // Shield life update
-    players.forEach(p => {
-        if (p && p.shield) {
-            p.shield.life--;
-            if (p.shield.life <= 0) {
-                p.shield = null;
-            }
-        }
-    });
-
-    // HPが0以下になったプレイヤーを処理
-    for (let i = 0; i < players.length; i++) {
-        if (players[i] && players[i].hp <= 0) {
-            // 爆発エフェクト
-            for (let k = 0; k < 20; k++) {
-                explosions.push({
-                    x: players[i].x,
-                    y: players[i].y,
-                    vx: (Math.random() - 0.5) * 7, // より強い爆発
-                    vy: (Math.random() - 0.5) * 7, // より強い爆発
-                    size: Math.random() * 4 + 2, // 大きめのサイズ
-                    color: 'red' // 爆発の色
-                });
-            }
-            players[i] = null; // ロボットを破壊済みにする
-        }
-    }
-
-    // Decoyの成長と生成
-    decoys.forEach((decoy, i) => {
-      decoy.size += decoy.growthRate;
-      decoy.angle += decoy.rotationSpeed;
-
-      if (decoy.size >= robotRadius) {
-        // Decoyが成長しきったら、新しいplayerを生成
-        const newPlayer = {
-          file: null,
-          x: decoy.x,
-          y: decoy.y,
-          color: decoy.color,
-          dir: decoy.angle,
-          hp: 1,
-          energy: 0,
-          lastAction: null,
-          speech: null,
-          speechTimer: 0,
-          shield: null
-        };
-        players.push(newPlayer);
-        decoys.splice(i, 1); // Decoyを削除
-      }
-    });
-}
-
-function drawRotatedRect(ctx, x, y, width, height, angle) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle * Math.PI / 180);
-  ctx.fillRect(-width / 2, -height / 2, width, height);
-  ctx.restore();
-}
-
-function drawMeterEnergy(ctx, x, y, value, color) {
-  const width = 30;
-  const height = 5;
-  const percentage = value / maxEnergy;
-
-  // Grey background
-  ctx.fillStyle = 'rgba(100, 100, 100, 0.1)';
-  ctx.fillRect(x - width / 2 + (width * percentage), y + 20, width * (1 - percentage), height);
-
-  // Colored portion
-  ctx.fillStyle = color;
-  ctx.fillRect(x - width / 2, y + 20, width * percentage, height);
-}
-
-function drawMeterHp(ctx, x, y, value, color) {
-  const width = 30;
-  const height = 5;
-  const percentage = value / maxHP;
-
-  // Grey background
-  ctx.fillStyle = 'rgba(100, 100, 100, 0.1)';
-  ctx.fillRect(x - width / 2 + (width * percentage), y + 20, width * (1 - percentage), height);
-
-  // Colored portion
-  ctx.fillStyle = color;
-  ctx.fillRect(x - width / 2, y + 20, width * percentage, height);
-}
-
-function drawGame() {
-  ctx.clearRect(0, 0, battlefieldWidth, battlefieldHeight);
-
-  // 配置エリア：上1/3が相手チーム、下1/3が自チーム
-  ctx.fillStyle = 'rgba(46, 160, 67, 0.06)';
-  ctx.fillRect(0, 0, battlefieldWidth, battlefieldHeight / 3);
-  ctx.fillStyle = 'rgba(255, 140, 0, 0.07)';
-  ctx.fillRect(0, battlefieldHeight * 2 / 3, battlefieldWidth, battlefieldHeight / 3);
+  ctx.fillStyle = "rgba(65, 146, 84, 0.12)";
+  ctx.fillRect(0, 0, FIELD_WIDTH, FIELD_HEIGHT / 3);
+  ctx.fillStyle = "rgba(232, 129, 36, 0.14)";
+  ctx.fillRect(0, OWN_ZONE_TOP, FIELD_WIDTH, FIELD_HEIGHT / 3);
 
   ctx.save();
-  ctx.setLineDash([6, 6]);
-  ctx.strokeStyle = 'rgba(80, 80, 80, 0.25)';
+  ctx.setLineDash([7, 7]);
+  ctx.strokeStyle = "rgba(70, 78, 67, 0.32)";
   ctx.beginPath();
-  ctx.moveTo(0, battlefieldHeight / 3);
-  ctx.lineTo(battlefieldWidth, battlefieldHeight / 3);
-  ctx.moveTo(0, battlefieldHeight * 2 / 3);
-  ctx.lineTo(battlefieldWidth, battlefieldHeight * 2 / 3);
+  ctx.moveTo(0, FIELD_HEIGHT / 3);
+  ctx.lineTo(FIELD_WIDTH, FIELD_HEIGHT / 3);
+  ctx.moveTo(0, OWN_ZONE_TOP);
+  ctx.lineTo(FIELD_WIDTH, OWN_ZONE_TOP);
   ctx.stroke();
   ctx.restore();
 
-  // Draw players
-  players.forEach(p => {
-    if (p) {
-      ctx.fillStyle = p.color;
-      drawRotatedRect(ctx, p.x, p.y, 20, 20, p.dir);
+  ctx.fillStyle = "rgba(45, 90, 54, 0.7)";
+  ctx.font = "bold 13px system-ui";
+  ctx.fillText("相手チーム配置エリア", 14, 24);
+  ctx.fillStyle = "rgba(145, 75, 18, 0.75)";
+  ctx.fillText("自チーム配置エリア", 14, OWN_ZONE_TOP + 24);
 
-      ctx.fillStyle = "black";
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.dir * Math.PI / 180);
-      ctx.fillRect(5, -4, 5, 2);
-      ctx.fillRect(5, 3, 5, 2);
-      ctx.restore();
-
-      // Display energy using meter
-      drawMeterEnergy(ctx, p.x, p.y, p.energy, 'rgba(173, 255, 173, 0.5)');
-      drawMeterHp(ctx, p.x, p.y - 5, p.hp, 'rgba(173, 173, 255, 0.5)');
-
-      // Draw speech bubble
-      if (p.speech) {
-          ctx.font = '12px sans-serif';
-          ctx.fillStyle = 'black';
-          ctx.textAlign = 'center';
-          ctx.fillText(p.speech, p.x, p.y - 30);
-      }
-
-      // Draw shield
-      if (p.shield) {
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, robotRadius * 1.5, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(173, 216, 230, 0.5)'; // 透過する水色
-          ctx.fill();
-          ctx.strokeStyle = 'skyblue'; // 縁の色
-          ctx.stroke();
-      }
-    }
+  config.enemy.forEach((unit, index) => {
+    drawRobot(unit, "#419254", "E" + (index + 1), 90, false);
   });
 
-  // Draw bullets
-  bullets.forEach(b => {
-    ctx.fillStyle = b.color;
-    ctx.fillRect(b.x - 2, b.y - 2, 4, 4);
+  config.own.forEach((unit, index) => {
+    drawRobot(unit, "#e88124", "A" + (index + 1), 270, index === selectedOwn);
+  });
+}
+
+function drawRobot(unit, color, label, direction, selected) {
+  ctx.save();
+  ctx.translate(unit.x, unit.y);
+  ctx.rotate(direction * Math.PI / 180);
+
+  if (unit.type === "sniper1") {
+    ctx.fillStyle = color;
+    ctx.fillRect(-13, -10, 26, 20);
+    ctx.fillStyle = "#263027";
+    ctx.fillRect(5, -3, 22, 6);
+  } else {
+    ctx.fillStyle = color;
+    ctx.fillRect(-12, -12, 24, 24);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(15, -9, 5, 0, Math.PI * 2);
+    ctx.arc(15, 9, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  if (selected) {
+    ctx.beginPath();
+    ctx.arc(unit.x, unit.y, 24, 0, Math.PI * 2);
+    ctx.strokeStyle = "#3856c8";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = "#202124";
+  ctx.font = "bold 12px system-ui";
+  ctx.textAlign = "center";
+  ctx.fillText(label, unit.x, unit.y + 38);
+  ctx.font = "11px system-ui";
+  ctx.fillText(unit.type === "sniper1" ? "S" : "I", unit.x, unit.y + 4);
+  ctx.textAlign = "start";
+}
+
+function refreshControls() {
+  document.querySelectorAll(".enemy-type").forEach(select => {
+    select.value = config.enemy[Number(select.dataset.index)].type;
   });
 
-//   // Draw punches
-//   punches.forEach((punch,i) => {
-//       ctx.save();
-//       ctx.translate(punch.x, punch.y);
-//       ctx.rotate(punch.dir * Math.PI / 180);
-//       ctx.arc(punch.x, punch.y, punch.size, 0, Math.PI * 2);
-//       ctx.strokeStyle = "red";
-//       ctx.stroke();
-// //      ctx.fillStyle = punch.color;
-// //      ctx.fillRect(-punch.size, -punch.size, punch.size * 2, punch.size * 2); // punchの描画
-//        ctx.restore();
-//    });
-
-    function calcRightAngleVertex(x1, y1, x2, y2, clockWise) {
-        const mx = (x1 + x2) / 2;
-        const my = (y1 + y2) / 2;
-
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-
-        const L = Math.sqrt(dx*dx + dy*dy);
-        const h = (L / 2) / Math.sqrt(2);
-
-        // 垂直ベクトルを単位ベクトルにする
-        let perpX;
-        let perpY;
-        if(clockWise) {
-            perpX = dy / L;
-            perpY = -dx / L;
-        }
-        else {
-            perpX = -dy / L;
-            perpY = dx / L;
-        }
-
-        const qx = mx + perpX * h;
-        const qy = my + perpY * h;
-
-        return { x: qx, y: qy };
-    }
-
-    // punchのビジュアルの描画
-    punchVisuals.forEach(pv => {
-        //ctx.save();
-        //ctx.translate(pv.x, pv.y);
-        //ctx.rotate(pv.dir * pv.PI / 180);
-        ctx.beginPath();
-        //ctx.arc(pv.x, pv.y, 5, 0, Math.PI * 2);
-        ctx.moveTo(pv.sx, pv.sy);
-        //ctx.lineTo(pv.ex, pv.ey);
-        let controlPoint = calcRightAngleVertex(pv.sx, pv.sy, pv.ex, pv.ey, !pv.clockWise );
-        ctx.quadraticCurveTo(controlPoint.x, controlPoint.y, pv.ex, pv.ey);
-        ctx.arc(pv.ex, pv.ey, 2, 0, Math.PI * 2);
-        ctx.strokeStyle = pv.color;
-        ctx.stroke();
-        ctx.fillStyle = pv.color;
-        ctx.fill();
-        ctx.closePath();
-        //ctx.restore();
-    });
-
-    // 描画処理
-    sparks.forEach(spark => {
-        ctx.fillStyle = spark.color;
-        ctx.beginPath();
-        ctx.arc(spark.x, spark.y, spark.size, 0, Math.PI * 2);
-        ctx.fill();
-    });
-
-    explosions.forEach(explosion => {
-        ctx.fillStyle = explosion.color;
-        ctx.beginPath();
-        ctx.arc(explosion.x, explosion.y, explosion.size, 0, Math.PI * 2);
-        ctx.fill();
-    });
-
-    // シールドヒットエフェクトの描画
-    shieldHits.forEach(shieldHit => {
-        ctx.beginPath();
-        ctx.ellipse(shieldHit.x, shieldHit.y, shieldHit.size, shieldHit.size, 0, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(173, 216, 230, 0.5)'; // 透過する水色
-        ctx.fill();
-        ctx.strokeStyle = 'skyblue'; // 縁の色
-        ctx.stroke();
-    });
-
-    // 波紋の描画
-    ripples.forEach(ripple => {
-        ctx.beginPath();
-        ctx.ellipse(ripple.x, ripple.y, ripple.size, ripple.size, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = ripple.color; 
-        ctx.stroke();
-    });
-
-    // Draw decoys
-    decoys.forEach(decoy => {
-      ctx.fillStyle = decoy.color;
-      ctx.save();
-      ctx.translate(decoy.x, decoy.y);
-      ctx.rotate(decoy.angle * Math.PI / 180);
-      ctx.fillRect(-decoy.size / 2, -decoy.size / 2, decoy.size, decoy.size);
-      ctx.restore();
-    });
-}
-
-async function startGame() {
-  gameRunning = false;
-  await sleep(1000);
-  initializeGame();
-  await loadPlayers();
-  gameRunning = true;
-  gameLoop();
-}
-
-function distance(x1, y1, x2, y2) {
-    return Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
-}
-
-function collisionDistance(p1, p2) {
-    const d = Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
-    return Math.max(0, d - 2 * robotRadius); 
-}
-
-function angleTo(x1, y1, x2, y2) {
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    let angle = Math.atan2(dy, dx) * 180 / Math.PI;
-    return (angle + 360) % 360; // 0-360の範囲にする
-}
-
-function angleDifference(a, b) {
-    let diff = (b - a + 540) % 360 - 180;
-    return diff;
-}
-
-async function gameLoop() {
-  if (!gameRunning) return;
-  updateGame();
-
-  players.forEach((p, i) => {
-    if (p && workers[i]) {
-        const punchInfo = punches.filter(punch => punch.source !== i).map(punch => ({
-            x: punch.x,
-            y: punch.y,
-            color: punch.color,
-            size: punch.size,
-            distance: distance(p.x, p.y, punch.x, punch.y),
-            angle: angleDifference(p.dir, angleTo(p.x, p.y, punch.x, punch.y))
-        })).sort((a, b) => a.distance - b.distance);
-
-      const playerInfo = players.filter(pl => pl !== null && pl !== p).map(pp => ({
-          x: pp.x,
-          y: pp.y,
-          color: pp.color,
-          distance: collisionDistance(p, pp),
-          angle: angleDifference(p.dir, angleTo(p.x, p.y, pp.x, pp.y))
-      })).sort((a, b) => a.distance - b.distance);
-
-      const bulletInfo = bullets.map(bullet => ({
-          x: bullet.x,
-          y: bullet.y,
-          color: bullet.color,
-          distance: distance(p.x, p.y, bullet.x, bullet.y),
-          angle: angleDifference(p.dir, angleTo(p.x, p.y, bullet.x, bullet.y))
-      })).sort((a, b) => a.distance - b.distance);
-
-      workers[i].postMessage({
-        x: p.x,
-        y: p.y,
-        dir: p.dir,
-        hp: p.hp,
-        energy: p.energy,
-        color: p.color,
-        players: playerInfo,
-        bullets: bulletInfo,
-        punches: punchInfo,
-      });
-    }
+  document.querySelectorAll(".own-type").forEach(select => {
+    select.value = config.own[Number(select.dataset.index)].type;
   });
 
-  drawGame();
-  await sleep(sleepTime);
-  requestAnimationFrame(gameLoop);
+  document.querySelectorAll(".own-card").forEach(card => {
+    card.classList.toggle("selected", Number(card.dataset.index) === selectedOwn);
+  });
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  const startButton = document.getElementById("startButton");
-  const battlefield = document.getElementById("battlefield");
-  ctx = battlefield.getContext("2d");
+function selectOwnUnit(index) {
+  selectedOwn = index;
+  refreshControls();
+  drawField();
+  placementStatus.textContent = "自機" + (index + 1) + "を選択中です。オレンジ色のエリアをタップしてください。";
+}
 
-  startButton.addEventListener("click", startGame);
+function saveConfig() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+}
+
+document.querySelectorAll(".enemy-type").forEach(select => {
+  select.addEventListener("change", event => {
+    config.enemy[Number(event.target.dataset.index)].type = event.target.value;
+    saveConfig();
+    drawField();
+  });
 });
 
+document.querySelectorAll(".own-type").forEach(select => {
+  select.addEventListener("change", event => {
+    const index = Number(event.target.dataset.index);
+    config.own[index].type = event.target.value;
+    selectedOwn = index;
+    saveConfig();
+    refreshControls();
+    drawField();
+    placementStatus.textContent = "自機" + (index + 1) + "を" + typeLabels[event.target.value] + "に変更しました。";
+  });
+});
+
+document.querySelectorAll(".unit-focus").forEach(button => {
+  button.addEventListener("click", () => selectOwnUnit(Number(button.dataset.index)));
+});
+
+document.querySelectorAll(".own-card").forEach(card => {
+  card.addEventListener("click", event => {
+    if (event.target.tagName !== "SELECT" && event.target.tagName !== "OPTION") {
+      selectOwnUnit(Number(card.dataset.index));
+    }
+  });
+});
+
+canvas.addEventListener("pointerdown", event => {
+  const rect = canvas.getBoundingClientRect();
+  const pointerX = (event.clientX - rect.left) * FIELD_WIDTH / rect.width;
+  const pointerY = (event.clientY - rect.top) * FIELD_HEIGHT / rect.height;
+
+  const hitIndex = config.own.findIndex(unit =>
+    Math.hypot(unit.x - pointerX, unit.y - pointerY) <= 26
+  );
+
+  if (hitIndex >= 0) {
+    selectOwnUnit(hitIndex);
+    return;
+  }
+
+  if (pointerY < OWN_ZONE_TOP) {
+    placementStatus.textContent = "自チームは、下1/3のオレンジ色のエリア内に配置してください。";
+    return;
+  }
+
+  const x = Math.max(20, Math.min(380, Math.round(pointerX / 20) * 20));
+  const y = Math.max(420, Math.min(580, Math.round(pointerY / 20) * 20));
+  const overlaps = config.own.some((unit, index) =>
+    index !== selectedOwn && Math.hypot(unit.x - x, unit.y - y) < 36
+  );
+
+  if (overlaps) {
+    placementStatus.textContent = "ほかの自機と重なるため、少し離れた位置を選んでください。";
+    return;
+  }
+
+  config.own[selectedOwn].x = x;
+  config.own[selectedOwn].y = y;
+  saveConfig();
+  drawField();
+  placementStatus.textContent = "自機" + (selectedOwn + 1) + "を配置しました。";
+});
+
+document.getElementById("startBattle").addEventListener("click", () => {
+  saveConfig();
+  window.location.href = "battle/";
+});
+
+refreshControls();
+drawField();
 </script>
 </body>
 </html>
-
