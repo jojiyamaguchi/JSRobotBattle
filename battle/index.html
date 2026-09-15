@@ -283,6 +283,7 @@ const battlefieldHeight = 600;
 const robotRadius = 10; // ロボットの半径
 let sparks = []; // 火花エフェクトの配列
 let explosions = []; // 爆発エフェクトの配列
+let smokeParticles = []; // エネルギー切れの黒煙
 let gameTime = 0;
 let maxGameTime = 180; // 180 seconds
 let punches = []; // punchの配列
@@ -349,6 +350,30 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function emitEnergySmoke(player) {
+  const rearAngle = (player.dir + 180) * Math.PI / 180;
+  const originX = player.x + robotRadius * 0.8 * Math.cos(rearAngle);
+  const originY = player.y + robotRadius * 0.8 * Math.sin(rearAngle);
+
+  for (let i = 0; i < 2; i++) {
+    const life = 34 + Math.random() * 20;
+    smokeParticles.push({
+      x: originX + (Math.random() - 0.5) * 5,
+      y: originY + (Math.random() - 0.5) * 5,
+      vx: (Math.random() - 0.5) * 0.45,
+      vy: -0.35 - Math.random() * 0.45,
+      size: 2 + Math.random() * 2.5,
+      life,
+      maxLife: life
+    });
+  }
+
+  // 多数の機体が同時に停止しても描画が重くなりすぎないよう制限
+  if (smokeParticles.length > 240) {
+    smokeParticles.splice(0, smokeParticles.length - 240);
+  }
+}
+
 function initializeGame() {
   const makePlayer = (unit, color, dir) => ({
     file: null,
@@ -373,6 +398,7 @@ function initializeGame() {
   gameRunning = false;
   sparks = []; // 初期化
   explosions = []; // 初期化
+  smokeParticles = []; // 初期化
   punches = []; // 初期化
   speechBubbles = []; // Initialize speech bubbles
   shields = []; // Initialize shields
@@ -573,7 +599,10 @@ function updateGame() {
       } else if (a.type === "charge") {
         p.energy = Math.min(p.energy + 1, maxEnergy); // Charge Energy
       }
-    } 
+    } else if (energyCost > 0) {
+      // 命令を受けたが、エネルギー不足で行動できなかった
+      emitEnergySmoke(p);
+    }
     
     p.energy = Math.min(p.energy + 1, maxEnergy); // Recover energy
     p.lastAction = null; // Reset last action to prevent repeating
@@ -697,6 +726,14 @@ function updateGame() {
         explosion.size -= 0.1; // 徐々に小さく
     });
 
+    smokeParticles.forEach(smoke => {
+        smoke.x += smoke.vx;
+        smoke.y += smoke.vy;
+        smoke.vx *= 0.99;
+        smoke.size += 0.035;
+        smoke.life--;
+    });
+
      // シールドヒットエフェクトの更新
     shieldHits.forEach(shieldHit => {
         shieldHit.size += 0.5; // 徐々に大きく
@@ -715,6 +752,7 @@ function updateGame() {
     // 寿命が尽きたパーティクルを削除
     sparks = sparks.filter(spark => spark.size > 0);
     explosions = explosions.filter(explosion => explosion.size > 0);
+    smokeParticles = smokeParticles.filter(smoke => smoke.life > 0);
     shieldHits = shieldHits.filter(shieldHit => shieldHit.life > 0);
     ripples = ripples.filter(ripple => ripple.life > 0);
     punchVisuals = punchVisuals.filter(punchVisual => punchVisual.life > 0);
@@ -870,6 +908,15 @@ function drawGame() {
   ctx.lineTo(battlefieldWidth, battlefieldHeight * 2 / 3);
   ctx.stroke();
   ctx.restore();
+
+  // 黒煙は機体の背後に描画
+  smokeParticles.forEach(smoke => {
+    const lifeRatio = smoke.life / smoke.maxLife;
+    ctx.beginPath();
+    ctx.arc(smoke.x, smoke.y, smoke.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(18, 20, 18, ${0.08 + lifeRatio * 0.62})`;
+    ctx.fill();
+  });
 
   // Draw players
   players.forEach(p => {
