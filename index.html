@@ -589,7 +589,8 @@ canvas.addEventListener("pointerdown", event => {
 
 document.getElementById("startBattle").addEventListener("click", () => {
   saveConfig();
-  window.location.href = "battle/";
+  // 毎回最新のバトルページを読み込む
+  window.location.href = "battle/?v=" + Date.now();
 });
 
 refreshControls();
