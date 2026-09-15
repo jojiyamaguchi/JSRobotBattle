@@ -735,15 +735,16 @@ document.querySelectorAll(".enemy-type").forEach(select => {
 document.querySelectorAll(".own-type").forEach(select => {
   select.addEventListener("change", event => {
     const index = Number(event.target.dataset.index);
+    const requestedType = event.target.value;
 
-    if (!isRobotUnlocked(event.target.value)) {
+    if (!isRobotUnlocked(requestedType)) {
       event.target.value = config.own[index].type;
       placementStatus.textContent =
-        typeLabels[event.target.value] + "はまだアンロックされていません。";
+        typeLabels[requestedType] + "はまだアンロックされていません。";
       return;
     }
 
-    config.own[index].type = event.target.value;
+    config.own[index].type = requestedType;
     selectedOwn = index;
     saveConfig();
     refreshControls();
