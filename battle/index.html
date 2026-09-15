@@ -410,7 +410,8 @@ function initializeGame() {
     speechTimer: 0,
     shield: null,
     gunTimer: 0,
-    gunAngle: 0
+    gunAngle: 0,
+    batteryWarningTimer: 0
   });
   players = [
     ...battleConfig.own.map(unit => makePlayer(unit, "orange", 270)),
@@ -518,9 +519,10 @@ function checkRobotCollision(x, y, currentPlayerIndex) {
 function updateGame() {
   if (!gameRunning) return;
 
-  // 射撃後、短時間だけ銃身を表示する
+  // 射撃後の銃身と、エネルギー不足の警告を短時間だけ表示する
   players.forEach(player => {
     if (player?.gunTimer > 0) player.gunTimer--;
+    if (player?.batteryWarningTimer > 0) player.batteryWarningTimer--;
   });
 
   players.forEach((p, i) => {
@@ -676,6 +678,7 @@ function updateGame() {
     } else if (energyCost > 0) {
       // 命令を受けたが、エネルギー不足で行動できなかった
       emitEnergySmoke(p);
+      p.batteryWarningTimer = 36;
     }
     
     p.energy = Math.min(p.energy + 1, maxEnergy); // Recover energy
@@ -944,6 +947,22 @@ function drawHpFrame(ctx, x, y, width, height, angle, value) {
   ctx.restore();
 }
 
+function drawEmptyBattery(ctx, player) {
+  if (!player.batteryWarningTimer) return;
+
+  ctx.save();
+  ctx.translate(player.x, player.y - 29);
+  ctx.strokeStyle = "#e32636";
+  ctx.fillStyle = "#e32636";
+  ctx.lineWidth = 2;
+
+  // 中が空のバッテリー本体
+  ctx.strokeRect(-8, -4, 13, 8);
+  // バッテリー右端の端子
+  ctx.fillRect(6, -2, 3, 4);
+  ctx.restore();
+}
+
 function drawGun(ctx, player) {
   if (!player.gunTimer) return;
 
@@ -1207,6 +1226,7 @@ function drawGame() {
       ctx.fillRect(5, 3, 5, 2);
       ctx.restore();
       drawGun(ctx, p);
+      drawEmptyBattery(ctx, p);
 
       drawReadySelection(p, index);
 
