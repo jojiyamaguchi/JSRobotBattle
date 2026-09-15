@@ -148,6 +148,18 @@
   .code-editor-header p {
     margin: 0;
   }
+  .code-editor-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .code-help-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+  }
   .code-editor-kicker {
     color: #6b7467;
     font-size: 11px;
@@ -241,7 +253,10 @@
         <p class="code-editor-kicker">ROBOT PROGRAM</p>
         <h2 id="codeEditorTitle">自機1のコード</h2>
       </div>
-      <button id="closeCodeEditor" class="secondary-button" type="button">閉じる</button>
+      <div class="code-editor-header-actions">
+        <a class="secondary-button code-help-link" href="../help/" target="_blank" rel="noopener">ヘルプ</a>
+        <button id="closeCodeEditor" class="secondary-button" type="button">閉じる</button>
+      </div>
     </header>
     <p class="code-editor-note">編集内容は自動保存され、次のバトル開始時から反映されます。</p>
     <textarea id="robotCodeEditor" aria-label="選択したロボットのJavaScriptコード" spellcheck="false"></textarea>
