@@ -943,8 +943,8 @@ function drawGun(ctx, player) {
   ctx.translate(player.x, player.y);
   ctx.rotate((player.dir + (player.gunAngle || 0)) * Math.PI / 180);
   ctx.fillStyle = player.color;
-  // 機体正面から突き出す、幅2px・長さ4pxの銃身
-  ctx.fillRect(robotRadius, -1, 4, 2);
+  // 機体正面から突き出す、幅2px・長さ8pxの銃身
+  ctx.fillRect(robotRadius, -1, 8, 2);
   ctx.restore();
 }
 
