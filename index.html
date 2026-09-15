@@ -1,9 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>progrobots | プログロボ</title>
+<title>progrobots | プログロボコン — バトルページ</title>
 <style>
   #battlefield {
+    display: block;
+    width: min(100%, 400px);
+    height: auto;
+    margin-top: 10px;
     border: 1px solid black;
   }
   .team-container {
@@ -59,11 +63,12 @@
 </head>
 <body>
 
-<h1>progrobots <small>プログロボ</small></h1>
+<h1>progrobots <small>プログロボコン</small></h1>
+<p>バトルページ</p>
 
 <div class="team-container">
   <div>
-    <h2>Team A (Orange)</h2>
+    <h2>自チーム（オレンジ）</h2>
     <input type="file" id="teamA_robot1" accept=".js">
     <input type="file" id="teamA_robot2" accept=".js">
     <input type="file" id="teamA_robot3" accept=".js">
@@ -72,7 +77,7 @@
 
 <div class="team-container">
   <div>
-    <h2>Team B (Green)</h2>
+    <h2>相手チーム（グリーン）</h2>
     <input type="file" id="teamB_robot1" accept=".js">
     <input type="file" id="teamB_robot2" accept=".js">
     <input type="file" id="teamB_robot3" accept=".js">
@@ -81,7 +86,7 @@
 
 <button id="startButton">Start Game</button>
 
-<canvas id="battlefield" width="400" height="400"></canvas>
+<canvas id="battlefield" width="400" height="600"></canvas>
 <div id="action-guide">
   <h3>ロボット説明</h3>
   <div class="action-block">
@@ -178,6 +183,8 @@ let gameRunning = false;
 let ctx;
 const maxEnergy = 100;
 const maxHP = 2000;
+const battlefieldWidth = 400;
+const battlefieldHeight = 600;
 const robotRadius = 10; // ロボットの半径
 let sparks = []; // 火花エフェクトの配列
 let explosions = []; // 爆発エフェクトの配列
@@ -199,12 +206,12 @@ function sleep(ms) {
 
 function initializeGame() {
   players = [
-    {file: null, x: 50, y: 100, color: "orange", dir: 0, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
-    {file: null, x: 50, y: 200, color: "orange", dir: 0, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
-    {file: null, x: 50, y: 300, color: "orange", dir: 0, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
-    {file: null, x: 350, y: 100, color: "green", dir: 180, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
-    {file: null, x: 350, y: 200, color: "green", dir: 180, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
-    {file: null, x: 350, y: 300, color: "green", dir: 180, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
+    {file: null, x: 100, y: 500, color: "orange", dir: 270, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
+    {file: null, x: 200, y: 500, color: "orange", dir: 270, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
+    {file: null, x: 300, y: 500, color: "orange", dir: 270, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
+    {file: null, x: 100, y: 100, color: "green", dir: 90, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
+    {file: null, x: 200, y: 100, color: "green", dir: 90, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
+    {file: null, x: 300, y: 100, color: "green", dir: 90, hp: maxHP, energy: maxEnergy, lastAction: null, speech: null, speechTimer: 0, shield: null},
   ];
   workers = [];
   bullets = [];
@@ -312,9 +319,9 @@ function updateGame() {
 
         // Boundaries check
         if (newX < 0) newX = 0;
-        if (newX > 400) newX = 400;
+        if (newX > battlefieldWidth) newX = battlefieldWidth;
         if (newY < 0) newY = 0;
-        if (newY > 400) newY = 400;
+        if (newY > battlefieldHeight) newY = battlefieldHeight;
 
         // 他のロボットとの衝突チェック
         if (!checkRobotCollision(newX, newY, i)) {
@@ -398,7 +405,7 @@ function updateGame() {
         const decoyX = p.x + distance * Math.cos(angleRad);
         const decoyY = p.y + distance * Math.sin(angleRad);
 
-        if (decoyX >= 0 && decoyX <= 400 && decoyY >= 0 && decoyY <= 400) {
+        if (decoyX >= 0 && decoyX <= battlefieldWidth && decoyY >= 0 && decoyY <= battlefieldHeight) {
           const decoyColor = a.color || p.color;
           decoys.push({
             x: decoyX,
@@ -428,7 +435,7 @@ function updateGame() {
     b.x += b.vx;
     b.y += b.vy;
   });
-  bullets = bullets.filter(b => b.x >= 0 && b.x <= 400 && b.y >= 0 && b.y <= 400);
+  bullets = bullets.filter(b => b.x >= 0 && b.x <= battlefieldWidth && b.y >= 0 && b.y <= battlefieldHeight);
 
     // Punchの当たり判定とダメージ処理
     punches.forEach(punch => {
@@ -691,7 +698,24 @@ function drawMeterHp(ctx, x, y, value, color) {
 }
 
 function drawGame() {
-  ctx.clearRect(0, 0, 400, 400);
+  ctx.clearRect(0, 0, battlefieldWidth, battlefieldHeight);
+
+  // 配置エリア：上1/3が相手チーム、下1/3が自チーム
+  ctx.fillStyle = 'rgba(46, 160, 67, 0.06)';
+  ctx.fillRect(0, 0, battlefieldWidth, battlefieldHeight / 3);
+  ctx.fillStyle = 'rgba(255, 140, 0, 0.07)';
+  ctx.fillRect(0, battlefieldHeight * 2 / 3, battlefieldWidth, battlefieldHeight / 3);
+
+  ctx.save();
+  ctx.setLineDash([6, 6]);
+  ctx.strokeStyle = 'rgba(80, 80, 80, 0.25)';
+  ctx.beginPath();
+  ctx.moveTo(0, battlefieldHeight / 3);
+  ctx.lineTo(battlefieldWidth, battlefieldHeight / 3);
+  ctx.moveTo(0, battlefieldHeight * 2 / 3);
+  ctx.lineTo(battlefieldWidth, battlefieldHeight * 2 / 3);
+  ctx.stroke();
+  ctx.restore();
 
   // Draw players
   players.forEach(p => {
@@ -868,7 +892,7 @@ function angleTo(x1, y1, x2, y2) {
 }
 
 function angleDifference(a, b) {
-    let diff = (b - a + 180) % 360 - 180;
+    let diff = (b - a + 540) % 360 - 180;
     return diff;
 }
 
