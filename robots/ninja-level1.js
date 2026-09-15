@@ -1,5 +1,5 @@
 // progrobots: ニンジャ Level 1
-// スナイパー Level 2を基本に、接近した相手にはパンチで応戦します。
+// 遠距離では射撃し、敵弾を斜め前方へのサイドステップでかわします。
 
 self.onmessage = ({ data }) => {
   const target = data.players.find(player => player.color !== data.color);
@@ -17,13 +17,19 @@ self.onmessage = ({ data }) => {
     return;
   }
 
-  // 20px以内まで敵の弾丸が迫り、エネルギーが10以上ならシールドを展開する
+  // 60px以内に敵の弾丸が来たら、斜め前方へサイドステップする
   const nearbyBullet = data.bullets.find(
-    bullet => bullet.color !== data.color && bullet.distance < 20
+    bullet => bullet.color !== data.color && bullet.distance < 60
   );
 
-  if (nearbyBullet && data.energy >= 10) {
-    postMessage({ action: { type: "shield" } });
+  if (nearbyBullet) {
+    if (data.energy >= 2) {
+      // 弾丸がある側とは反対方向へ、斜め前方に移動する
+      const sidestepDirection = nearbyBullet.angle >= 0 ? 60 : -60;
+      postMessage({ action: { type: "move", dir: sidestepDirection } });
+    } else {
+      postMessage({ action: { type: "charge" } });
+    }
     return;
   }
 
