@@ -977,7 +977,11 @@ function drawReadySelection(player, index) {
 function updateBattleControls() {
   const button = document.getElementById("startButton");
   button.disabled = battleState !== "ready";
-  button.textContent = battleState === "entering" ? "ロボット入場中…" : "バトル開始";
+  button.textContent = battleState === "entering"
+    ? "ロボット入場中…"
+    : battleState === "starting"
+      ? "バトル準備中…"
+      : "バトル開始";
 }
 
 function closeCodeEditor() {
@@ -1298,6 +1302,8 @@ function drawGame() {
 async function startGame() {
   if (battleState !== "ready") return;
 
+  battleState = "starting";
+  updateBattleControls();
   selectedRobotIndex = null;
   closeCodeEditor();
   initializeGame();
