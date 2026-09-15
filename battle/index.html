@@ -917,20 +917,6 @@ function drawRotatedRect(ctx, x, y, width, height, angle) {
   ctx.restore();
 }
 
-function drawMeterEnergy(ctx, x, y, value, color) {
-  const width = 30;
-  const height = 5;
-  const percentage = value / maxEnergy;
-
-  // Grey background
-  ctx.fillStyle = 'rgba(100, 100, 100, 0.1)';
-  ctx.fillRect(x - width / 2 + (width * percentage), y + 20, width * (1 - percentage), height);
-
-  // Colored portion
-  ctx.fillStyle = color;
-  ctx.fillRect(x - width / 2, y + 20, width * percentage, height);
-}
-
 function drawHpFrame(ctx, x, y, width, height, angle, value) {
   if (value <= 0) return;
 
@@ -956,7 +942,7 @@ function drawGun(ctx, player) {
   ctx.save();
   ctx.translate(player.x, player.y);
   ctx.rotate((player.dir + (player.gunAngle || 0)) * Math.PI / 180);
-  ctx.fillStyle = "#252925";
+  ctx.fillStyle = player.color;
   // 機体正面から突き出す、幅2px・長さ4pxの銃身
   ctx.fillRect(robotRadius, -1, 4, 2);
   ctx.restore();
@@ -1214,8 +1200,6 @@ function drawGame() {
       ctx.restore();
       drawGun(ctx, p);
 
-      // エネルギーは従来どおりバーで表示
-      drawMeterEnergy(ctx, p.x, p.y, p.energy, 'rgba(173, 255, 173, 0.5)');
       drawReadySelection(p, index);
 
       // Draw speech bubble
