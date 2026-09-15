@@ -10,6 +10,5 @@ self.onmessage = ({ data }) => {
     return;
   }
 
-  const action = data.energy >= 40 ? "fire" : "charge";
-  postMessage({ action: { type: action } });
+  postMessage({ action: { type: "fire" } });
 };
