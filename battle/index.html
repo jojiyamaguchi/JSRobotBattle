@@ -85,6 +85,12 @@
     margin: 0;
     padding-left: 20px;
   }
+  .battle-actions {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-wrap: wrap;
+  }
   #startButton {
     min-height: 44px;
     padding: 0 18px;
@@ -241,7 +247,12 @@
     </section>
   </div>
 
-  <button id="startButton">バトル開始</button>
+  <div class="battle-actions">
+    <input id="teamFileInput" type="file" accept=".json,application/json" hidden>
+    <button id="saveTeamFile" class="secondary-button" type="button">チームを保存</button>
+    <button id="loadTeamFile" class="secondary-button" type="button">チームを読み込む</button>
+    <button id="startButton" type="button">バトル開始</button>
+  </div>
   <p id="battleStatus" aria-live="polite"></p>
   <div class="battle-legend" aria-label="表示の説明">
     <span class="hp-frame-sample" aria-hidden="true"></span>
@@ -260,12 +271,9 @@
         <button id="closeCodeEditor" class="secondary-button" type="button">閉じる</button>
       </div>
     </header>
-    <p class="code-editor-note">編集内容は自動保存され、次のバトル開始時から反映されます。JavaScriptファイルを端末から読み込んだり、編集中のコードを保存したりできます。</p>
+    <p class="code-editor-note">編集内容は自動保存され、次のバトル開始時から反映されます。</p>
     <textarea id="robotCodeEditor" aria-label="選択したロボットのJavaScriptコード" spellcheck="false"></textarea>
     <div class="code-editor-actions">
-      <input id="robotCodeFileInput" type="file" accept=".js,.txt,text/javascript,application/javascript,text/plain" hidden>
-      <button id="loadRobotCodeFile" class="secondary-button" type="button">ファイルから読み込む</button>
-      <button id="downloadRobotCode" class="secondary-button" type="button">ファイルをダウンロード</button>
       <button id="resetRobotCode" class="secondary-button" type="button">初期コードに戻す</button>
     </div>
   </section>
@@ -303,9 +311,14 @@ let defaultRobotSources = {};
 let workerObjectUrls = [];
 let entranceAnimationId = null;
 
+const BATTLE_CONFIG_KEY = "progrobots-battle-config-v1";
 const BATTLE_COUNT_KEY = "progrobots-battle-count-v1";
 const ENEMY_TEAM_KEY = "progrobots-enemy-team-v1";
 const ACHIEVEMENT_UNLOCKS_KEY = "progrobots-achievement-unlocks-v1";
+const TEAM_FILE_FORMAT = "progrobots-team";
+const TEAM_FILE_VERSION = 1;
+const MAX_TEAM_FILE_SIZE = 512 * 1024;
+const MAX_ROBOT_CODE_SIZE = 100 * 1024;
 const robotUnlockRequirements = {
   infighter1: 0,
   sniper1: 1,
@@ -416,7 +429,7 @@ function normalizeUnit(unit, fallback) {
 
 function loadBattleConfig() {
   try {
-    const saved = JSON.parse(localStorage.getItem("progrobots-battle-config-v1"));
+    const saved = JSON.parse(localStorage.getItem(BATTLE_CONFIG_KEY));
     if (!saved || !Array.isArray(saved.own) || !Array.isArray(saved.enemy)) {
       return defaultBattleConfig;
     }
@@ -545,6 +558,105 @@ async function loadRobotCodes() {
     ),
     ...battleConfig.enemy.map(unit => defaultRobotSources[unit.type])
   ];
+}
+
+function downloadTeamJson(teamData) {
+  const json = JSON.stringify(teamData, null, 2);
+  const blob = new Blob([json], {type: "application/json;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const date = new Date().toISOString().slice(0, 10);
+  link.href = url;
+  link.download = `progrobots-team-${date}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function saveTeamFile() {
+  downloadTeamJson({
+    format: TEAM_FILE_FORMAT,
+    version: TEAM_FILE_VERSION,
+    name: "マイチーム",
+    exportedAt: new Date().toISOString(),
+    units: battleConfig.own.map((unit, index) => ({
+      type: unit.type,
+      x: unit.x,
+      y: unit.y,
+      code: robotCodes[index]
+    }))
+  });
+}
+
+function validateImportedTeam(teamData) {
+  if (
+    teamData?.format !== TEAM_FILE_FORMAT ||
+    teamData?.version !== TEAM_FILE_VERSION ||
+    !Array.isArray(teamData?.units) ||
+    teamData.units.length !== 3
+  ) {
+    throw new Error("プログロボコンのチームファイルではありません。");
+  }
+
+  const units = teamData.units.map((unit, index) => {
+    if (!Object.hasOwn(robotPrograms, unit?.type)) {
+      throw new Error(`自機${index + 1}の機体タイプが正しくありません。`);
+    }
+    if (!isRobotUnlocked(unit.type)) {
+      throw new Error(
+        `${robotTypeLabels[unit.type]}はまだアンロックされていないため読み込めません。`
+      );
+    }
+    if (
+      typeof unit.code !== "string" ||
+      unit.code.length === 0 ||
+      unit.code.length > MAX_ROBOT_CODE_SIZE
+    ) {
+      throw new Error(`自機${index + 1}のコードが正しくありません。`);
+    }
+    if (!Number.isFinite(unit.x) || !Number.isFinite(unit.y)) {
+      throw new Error(`自機${index + 1}の配置が正しくありません。`);
+    }
+
+    return {
+      type: unit.type,
+      x: Math.max(20, Math.min(380, Math.round(unit.x))),
+      y: Math.max(420, Math.min(580, Math.round(unit.y))),
+      code: unit.code
+    };
+  });
+
+  for (let i = 0; i < units.length; i++) {
+    for (let j = i + 1; j < units.length; j++) {
+      if (Math.hypot(units[i].x - units[j].x, units[i].y - units[j].y) < 36) {
+        throw new Error("機体同士の配置が重なっています。");
+      }
+    }
+  }
+  return units;
+}
+
+async function loadTeamFile(file) {
+  if (file.size > MAX_TEAM_FILE_SIZE) {
+    throw new Error("チームファイルが大きすぎます。");
+  }
+
+  const units = validateImportedTeam(JSON.parse(await file.text()));
+  battleConfig.own = units.map(({type, x, y}) => ({type, x, y}));
+  units.forEach((unit, index) => {
+    localStorage.setItem(robotCodeStorageKey(index, unit.type), unit.code);
+  });
+  localStorage.setItem(BATTLE_CONFIG_KEY, JSON.stringify(battleConfig));
+
+  robotCodes = [
+    ...units.map(unit => unit.code),
+    ...robotCodes.slice(3, 6)
+  ];
+  selectedRobotIndex = null;
+  closeCodeEditor();
+  renderRoster();
+  prepareBattle();
 }
 
 function stopWorkers() {
@@ -1119,7 +1231,10 @@ function drawReadySelection(player, index) {
 
 function updateBattleControls() {
   const button = document.getElementById("startButton");
-  button.disabled = battleState !== "ready";
+  const teamFileDisabled = battleState !== "ready";
+  button.disabled = teamFileDisabled;
+  document.getElementById("saveTeamFile").disabled = teamFileDisabled;
+  document.getElementById("loadTeamFile").disabled = teamFileDisabled;
   button.textContent = battleState === "entering"
     ? "ロボット入場中…"
     : battleState === "starting"
@@ -1570,6 +1685,41 @@ document.addEventListener("DOMContentLoaded", async () => {
   startButton.addEventListener("click", startGame);
   battlefield.addEventListener("pointerdown", handleBattlefieldPointer);
 
+  const teamFileInput = document.getElementById("teamFileInput");
+
+  document.getElementById("saveTeamFile").addEventListener("click", () => {
+    if (battleState !== "ready") return;
+    try {
+      saveTeamFile();
+      document.getElementById("battleStatus").textContent =
+        "自チームをJSONファイルに保存しました。";
+    } catch (error) {
+      document.getElementById("battleStatus").textContent = error.message;
+    }
+  });
+
+  document.getElementById("loadTeamFile").addEventListener("click", () => {
+    if (battleState === "ready") teamFileInput.click();
+  });
+
+  teamFileInput.addEventListener("change", async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      await loadTeamFile(file);
+      document.getElementById("battleStatus").textContent =
+        `「${file.name}」から自チームを読み込みました。`;
+    } catch (error) {
+      document.getElementById("battleStatus").textContent =
+        error instanceof SyntaxError
+          ? "JSONファイルを読み取れませんでした。"
+          : error.message;
+    } finally {
+      event.target.value = "";
+    }
+  });
+
   editor.addEventListener("input", () => {
     if (editingRobotIndex === null) return;
     robotCodes[editingRobotIndex] = editor.value;
@@ -1591,61 +1741,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   document.getElementById("closeCodeEditor").addEventListener("click", closeCodeEditor);
-
-  const codeFileInput = document.getElementById("robotCodeFileInput");
-
-  document.getElementById("loadRobotCodeFile").addEventListener("click", () => {
-    if (editingRobotIndex === null) return;
-    codeFileInput.click();
-  });
-
-  codeFileInput.addEventListener("change", async event => {
-    const file = event.target.files?.[0];
-    if (!file || editingRobotIndex === null) return;
-
-    const index = editingRobotIndex;
-    const type = players[index].type;
-
-    try {
-      const source = await file.text();
-      robotCodes[index] = source;
-      localStorage.setItem(robotCodeStorageKey(index, type), source);
-
-      if (editingRobotIndex === index) {
-        editor.value = source;
-      }
-      document.getElementById("battleStatus").textContent =
-        `自機${index + 1}に「${file.name}」を読み込みました。次のバトルから反映されます。`;
-    } catch {
-      document.getElementById("battleStatus").textContent =
-        "ファイルを読み込めませんでした。";
-    } finally {
-      event.target.value = "";
-    }
-  });
-
-  document.getElementById("downloadRobotCode").addEventListener("click", () => {
-    if (editingRobotIndex === null) return;
-
-    const index = editingRobotIndex;
-    const type = players[index].type;
-    const sourceName = robotPrograms[type].split("/").pop();
-    const fileName = `progrobots-own${index + 1}-${sourceName}`;
-    const fileBlob = new Blob([editor.value], {
-      type: "text/javascript;charset=utf-8"
-    });
-    const downloadUrl = URL.createObjectURL(fileBlob);
-    const downloadLink = document.createElement("a");
-    downloadLink.href = downloadUrl;
-    downloadLink.download = fileName;
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    downloadLink.remove();
-    setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
-
-    document.getElementById("battleStatus").textContent =
-      `自機${index + 1}のコードを「${fileName}」としてダウンロードしました。`;
-  });
 
   document.getElementById("resetRobotCode").addEventListener("click", async event => {
     if (editingRobotIndex === null) return;
