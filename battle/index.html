@@ -314,6 +314,7 @@ let entranceAnimationId = null;
 const BATTLE_CONFIG_KEY = "progrobots-battle-config-v1";
 const BATTLE_COUNT_KEY = "progrobots-battle-count-v1";
 const ENEMY_TEAM_KEY = "progrobots-enemy-team-v1";
+const ENEMY_PROGRESS_KEY = "progrobots-enemy-progress-v1";
 const ACHIEVEMENT_UNLOCKS_KEY = "progrobots-achievement-unlocks-v1";
 const TEAM_FILE_FORMAT = "progrobots-team";
 const TEAM_FILE_VERSION = 1;
@@ -330,6 +331,28 @@ const battleCountUnlockNotices = {
   3: "インファイターLv2",
   6: "スナイパーLv2"
 };
+const enemyTeamUnlockNotices = {
+  2: "相手チームLv2「スナイパーズ」",
+  3: "相手チームLv3「シノビーズ」",
+  4: "相手チームLv4「スナイパーズ2」",
+  5: "相手チームLv5「ファイターズ2」",
+  6: "相手チームLv6「シノビーズ2」"
+};
+
+function loadEnemyProgress() {
+  const savedLevel = Number.parseInt(
+    localStorage.getItem(ENEMY_PROGRESS_KEY),
+    10
+  );
+  return Number.isFinite(savedLevel)
+    ? Math.max(1, Math.min(6, savedLevel))
+    : 1;
+}
+
+function enemyPresetLevel(presetKey) {
+  if (!/^level[1-6]$/.test(presetKey || "")) return null;
+  return Number.parseInt(presetKey.replace("level", ""), 10);
+}
 
 function loadBattleCount() {
   const savedCount = Number.parseInt(localStorage.getItem(BATTLE_COUNT_KEY), 10);
@@ -362,29 +385,41 @@ function recordBattleCompletion(ownTeamWon) {
   battleCount += 1;
   localStorage.setItem(BATTLE_COUNT_KEY, String(battleCount));
 
-  const unlockedRobots = [];
+  const unlockedItems = [];
   const countUnlock = battleCountUnlockNotices[battleCount];
   if (countUnlock) {
-    unlockedRobots.push(countUnlock);
+    unlockedItems.push(countUnlock);
   }
 
   if (ownTeamWon) {
     const enemyTeamPreset = localStorage.getItem(ENEMY_TEAM_KEY);
     if (enemyTeamPreset === "level4" && !achievementUnlocks.ninja1) {
       achievementUnlocks.ninja1 = true;
-      unlockedRobots.push("ニンジャLv1");
+      unlockedItems.push("ニンジャLv1");
     }
     if (enemyTeamPreset === "level5" && !achievementUnlocks.ninja2) {
       achievementUnlocks.ninja2 = true;
-      unlockedRobots.push("ニンジャLv2");
+      unlockedItems.push("ニンジャLv2");
     }
     localStorage.setItem(
       ACHIEVEMENT_UNLOCKS_KEY,
       JSON.stringify(achievementUnlocks)
     );
+
+    const defeatedLevel = enemyPresetLevel(enemyTeamPreset);
+    const highestUnlockedLevel = loadEnemyProgress();
+    if (
+      defeatedLevel !== null &&
+      defeatedLevel === highestUnlockedLevel &&
+      defeatedLevel < 6
+    ) {
+      const nextLevel = defeatedLevel + 1;
+      localStorage.setItem(ENEMY_PROGRESS_KEY, String(nextLevel));
+      unlockedItems.push(enemyTeamUnlockNotices[nextLevel]);
+    }
   }
 
-  return unlockedRobots;
+  return unlockedItems;
 }
 
 const robotPrograms = {
@@ -413,7 +448,7 @@ const defaultBattleConfig = {
   ],
   enemy: [
     {type: "infighter1", x: 100, y: 100},
-    {type: "sniper1", x: 200, y: 100},
+    {type: "infighter1", x: 200, y: 100},
     {type: "infighter1", x: 300, y: 100}
   ]
 };
@@ -433,12 +468,28 @@ function loadBattleConfig() {
     if (!saved || !Array.isArray(saved.own) || !Array.isArray(saved.enemy)) {
       return defaultBattleConfig;
     }
+
+    const selectedEnemyPreset = localStorage.getItem(ENEMY_TEAM_KEY);
+    const selectedEnemyLevel = enemyPresetLevel(selectedEnemyPreset);
+    const enemyTeamLocked =
+      selectedEnemyLevel !== null &&
+      selectedEnemyLevel > loadEnemyProgress();
+    const enemyUnits = enemyTeamLocked
+      ? defaultBattleConfig.enemy
+      : saved.enemy;
+
+    if (enemyTeamLocked) {
+      localStorage.setItem(ENEMY_TEAM_KEY, "level1");
+    }
+
     return {
       own: defaultBattleConfig.own.map((fallback, index) => {
         const unit = normalizeUnit(saved.own[index], fallback);
         return isRobotUnlocked(unit.type) ? unit : {...unit, type: "infighter1"};
       }),
-      enemy: defaultBattleConfig.enemy.map((fallback, index) => normalizeUnit(saved.enemy[index], fallback))
+      enemy: defaultBattleConfig.enemy.map((fallback, index) =>
+        normalizeUnit(enemyUnits[index], fallback)
+      )
     };
   } catch {
     return defaultBattleConfig;
@@ -1371,12 +1422,12 @@ function finishGame(message, ownTeamWon = false) {
   gameRunning = false;
   battleState = "finished";
   updateBattleControls();
-  const unlockedRobots = recordBattleCompletion(ownTeamWon);
+  const unlockedItems = recordBattleCompletion(ownTeamWon);
 
   setTimeout(() => {
     alert(message);
-    unlockedRobots.forEach(robotName => {
-      alert(`${robotName}がアンロックされました！`);
+    unlockedItems.forEach(itemName => {
+      alert(`${itemName}がアンロックされました！`);
     });
     prepareBattle();
   }, 0);
