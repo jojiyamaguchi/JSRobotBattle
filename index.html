@@ -324,11 +324,6 @@
       <label class="team-select-label" for="enemyTeamPreset">相手チーム</label>
       <select id="enemyTeamPreset">
         <option value="level1">Lv1 ファイターズ</option>
-        <option value="level2">Lv2 スナイパーズ</option>
-        <option value="level3">Lv3 シノビーズ</option>
-        <option value="level4">Lv4 スナイパーズ2</option>
-        <option value="level5">Lv5 ファイターズ2</option>
-        <option value="level6">Lv6 シノビーズ2</option>
         <option value="custom">カスタム</option>
       </select>
       <p id="enemyTeamDescription" class="team-description"></p>
@@ -449,6 +444,7 @@ const FIELD_HEIGHT = 600;
 const OWN_ZONE_TOP = FIELD_HEIGHT * 2 / 3;
 const STORAGE_KEY = "progrobots-battle-config-v1";
 const ENEMY_TEAM_KEY = "progrobots-enemy-team-v1";
+const ENEMY_PROGRESS_KEY = "progrobots-enemy-progress-v1";
 const BATTLE_COUNT_KEY = "progrobots-battle-count-v1";
 const ACHIEVEMENT_UNLOCKS_KEY = "progrobots-achievement-unlocks-v1";
 
@@ -520,34 +516,59 @@ function unlockConditionLabel(type) {
 
 const enemyTeamPresets = {
   level1: {
+    label: "Lv1 ファイターズ",
     type: "infighter1",
     description: "インファイター Lv1 × 3体"
   },
   level2: {
+    label: "Lv2 スナイパーズ",
     type: "sniper1",
     description: "スナイパー Lv1 × 3体"
   },
   level3: {
+    label: "Lv3 シノビーズ",
     type: "ninja1",
     description: "ニンジャ Lv1 × 3体"
   },
   level4: {
+    label: "Lv4 スナイパーズ2",
     type: "sniper2",
     description: "スナイパー Lv2 × 3体"
   },
   level5: {
+    label: "Lv5 ファイターズ2",
     type: "infighter2",
     description: "インファイター Lv2 × 3体"
   },
   level6: {
+    label: "Lv6 シノビーズ2",
     type: "ninja2",
     description: "ニンジャ Lv2 × 3体"
   },
   custom: {
+    label: "カスタム",
     type: null,
     description: "3体のタイプを自由に選択できます。"
   }
 };
+
+function loadEnemyProgress() {
+  const savedLevel = Number.parseInt(
+    localStorage.getItem(ENEMY_PROGRESS_KEY),
+    10
+  );
+  return Number.isFinite(savedLevel)
+    ? Math.max(1, Math.min(6, savedLevel))
+    : 1;
+}
+
+const highestUnlockedEnemyLevel = loadEnemyProgress();
+
+function isEnemyTeamUnlocked(presetKey) {
+  if (presetKey === "custom") return true;
+  const level = Number.parseInt(presetKey.replace("level", ""), 10);
+  return Number.isFinite(level) && level <= highestUnlockedEnemyLevel;
+}
 
 const defaultConfig = {
   own: [
@@ -606,9 +627,14 @@ function detectEnemyTeamPreset() {
 }
 
 const savedEnemyTeamPreset = localStorage.getItem(ENEMY_TEAM_KEY);
-let enemyTeamPreset = Object.hasOwn(enemyTeamPresets, savedEnemyTeamPreset)
-  ? savedEnemyTeamPreset
-  : detectEnemyTeamPreset();
+const detectedEnemyTeamPreset = detectEnemyTeamPreset();
+let enemyTeamPreset =
+  Object.hasOwn(enemyTeamPresets, savedEnemyTeamPreset) &&
+  isEnemyTeamUnlocked(savedEnemyTeamPreset)
+    ? savedEnemyTeamPreset
+    : isEnemyTeamUnlocked(detectedEnemyTeamPreset)
+      ? detectedEnemyTeamPreset
+      : "level1";
 
 if (enemyTeamPreset !== "custom") {
   config.enemy.forEach(unit => {
@@ -716,8 +742,24 @@ function drawRobot(unit, color, label, direction, selected) {
 }
 
 function refreshControls() {
+  const availableEnemyTeams = Object.entries(enemyTeamPresets)
+    .filter(([key]) => isEnemyTeamUnlocked(key));
+  enemyTeamSelect.replaceChildren(...availableEnemyTeams.map(([key, preset]) => {
+    const option = document.createElement("option");
+    option.value = key;
+    option.textContent = preset.label;
+    return option;
+  }));
   enemyTeamSelect.value = enemyTeamPreset;
-  enemyTeamDescription.textContent = enemyTeamPresets[enemyTeamPreset].description;
+
+  const nextLevel = highestUnlockedEnemyLevel < 6
+    ? highestUnlockedEnemyLevel + 1
+    : null;
+  const selectedDescription = enemyTeamPresets[enemyTeamPreset].description;
+  enemyTeamDescription.textContent =
+    enemyTeamPreset === `level${highestUnlockedEnemyLevel}` && nextLevel
+      ? `${selectedDescription}　勝利するとLv${nextLevel}を解放します。`
+      : selectedDescription;
   enemyCustomUnits.hidden = enemyTeamPreset !== "custom";
 
   document.querySelectorAll(".enemy-type").forEach(select => {
@@ -887,7 +929,10 @@ async function loadTeamFile(file) {
 }
 
 enemyTeamSelect.addEventListener("change", event => {
-  enemyTeamPreset = event.target.value;
+  const requestedPreset = event.target.value;
+  if (!isEnemyTeamUnlocked(requestedPreset)) return;
+
+  enemyTeamPreset = requestedPreset;
   const preset = enemyTeamPresets[enemyTeamPreset];
 
   if (preset.type) {
