@@ -229,7 +229,21 @@
   .actions {
     display: flex;
     justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
     margin-top: 22px;
+  }
+
+  .team-file-button {
+    min-height: 44px;
+    padding: 0 18px;
+    border: 1px solid #aeb7a8;
+    border-radius: 999px;
+    color: #35402f;
+    font: inherit;
+    font-weight: 800;
+    background: #ffffff;
+    cursor: pointer;
   }
 
   #startBattle {
@@ -422,6 +436,9 @@
   </div>
 
   <div class="actions">
+    <input id="teamFileInput" type="file" accept=".json,application/json" hidden>
+    <button id="saveTeamFile" class="team-file-button" type="button">チームを保存</button>
+    <button id="loadTeamFile" class="team-file-button" type="button">チームを読み込む</button>
     <button id="startBattle" type="button">この編成でバトルへ</button>
   </div>
 </main>
@@ -443,6 +460,20 @@ const typeLabels = {
   ninja1: "ニンジャ Lv1",
   ninja2: "ニンジャ Lv2"
 };
+
+const robotPrograms = {
+  infighter1: "robots/infighter-level1.js",
+  infighter2: "robots/infighter-level2.js",
+  sniper1: "robots/sniper-level1.js",
+  sniper2: "robots/sniper-level2.js",
+  ninja1: "robots/ninja-level1.js",
+  ninja2: "robots/ninja-level2.js"
+};
+
+const TEAM_FILE_FORMAT = "progrobots-team";
+const TEAM_FILE_VERSION = 1;
+const MAX_TEAM_FILE_SIZE = 512 * 1024;
+const MAX_ROBOT_CODE_SIZE = 100 * 1024;
 
 const unlockRequirements = {
   infighter1: 0,
@@ -745,6 +776,116 @@ function saveConfig() {
   localStorage.setItem(ENEMY_TEAM_KEY, enemyTeamPreset);
 }
 
+function robotCodeStorageKey(index, type) {
+  return `progrobots-robot-code-v1-${index}-${type}`;
+}
+
+async function codeForTeamExport(index, type) {
+  const savedCode = localStorage.getItem(robotCodeStorageKey(index, type));
+  if (savedCode !== null) return savedCode;
+
+  const response = await fetch(robotPrograms[type], {cache: "no-store"});
+  if (!response.ok) {
+    throw new Error(`${typeLabels[type]}のコードを読み込めませんでした。`);
+  }
+  return response.text();
+}
+
+function downloadTeamJson(teamData) {
+  const json = JSON.stringify(teamData, null, 2);
+  const blob = new Blob([json], {type: "application/json;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const date = new Date().toISOString().slice(0, 10);
+  link.href = url;
+  link.download = `progrobots-team-${date}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function saveTeamFile() {
+  const units = await Promise.all(config.own.map(async (unit, index) => ({
+    type: unit.type,
+    x: unit.x,
+    y: unit.y,
+    code: await codeForTeamExport(index, unit.type)
+  })));
+
+  downloadTeamJson({
+    format: TEAM_FILE_FORMAT,
+    version: TEAM_FILE_VERSION,
+    name: "マイチーム",
+    exportedAt: new Date().toISOString(),
+    units
+  });
+}
+
+function validateImportedTeam(teamData) {
+  if (
+    teamData?.format !== TEAM_FILE_FORMAT ||
+    teamData?.version !== TEAM_FILE_VERSION ||
+    !Array.isArray(teamData?.units) ||
+    teamData.units.length !== 3
+  ) {
+    throw new Error("プログロボコンのチームファイルではありません。");
+  }
+
+  const units = teamData.units.map((unit, index) => {
+    if (!Object.hasOwn(typeLabels, unit?.type)) {
+      throw new Error(`自機${index + 1}の機体タイプが正しくありません。`);
+    }
+    if (!isRobotUnlocked(unit.type)) {
+      throw new Error(
+        `${typeLabels[unit.type]}はまだアンロックされていないため読み込めません。`
+      );
+    }
+    if (
+      typeof unit.code !== "string" ||
+      unit.code.length === 0 ||
+      unit.code.length > MAX_ROBOT_CODE_SIZE
+    ) {
+      throw new Error(`自機${index + 1}のコードが正しくありません。`);
+    }
+    if (!Number.isFinite(unit.x) || !Number.isFinite(unit.y)) {
+      throw new Error(`自機${index + 1}の配置が正しくありません。`);
+    }
+
+    return {
+      type: unit.type,
+      x: Math.max(20, Math.min(380, Math.round(unit.x))),
+      y: Math.max(420, Math.min(580, Math.round(unit.y))),
+      code: unit.code
+    };
+  });
+
+  for (let i = 0; i < units.length; i++) {
+    for (let j = i + 1; j < units.length; j++) {
+      if (Math.hypot(units[i].x - units[j].x, units[i].y - units[j].y) < 36) {
+        throw new Error("機体同士の配置が重なっています。");
+      }
+    }
+  }
+  return units;
+}
+
+async function loadTeamFile(file) {
+  if (file.size > MAX_TEAM_FILE_SIZE) {
+    throw new Error("チームファイルが大きすぎます。");
+  }
+
+  const units = validateImportedTeam(JSON.parse(await file.text()));
+  config.own = units.map(({type, x, y}) => ({type, x, y}));
+  units.forEach((unit, index) => {
+    localStorage.setItem(robotCodeStorageKey(index, unit.type), unit.code);
+  });
+  selectedOwn = 0;
+  saveConfig();
+  refreshControls();
+  drawField();
+}
+
 enemyTeamSelect.addEventListener("change", event => {
   enemyTeamPreset = event.target.value;
   const preset = enemyTeamPresets[enemyTeamPreset];
@@ -836,6 +977,43 @@ canvas.addEventListener("pointerdown", event => {
   saveConfig();
   drawField();
   placementStatus.textContent = "自機" + (selectedOwn + 1) + "を配置しました。";
+});
+
+const teamFileInput = document.getElementById("teamFileInput");
+
+document.getElementById("saveTeamFile").addEventListener("click", async () => {
+  const button = document.getElementById("saveTeamFile");
+  button.disabled = true;
+  try {
+    await saveTeamFile();
+    placementStatus.textContent = "自チームをJSONファイルに保存しました。";
+  } catch (error) {
+    placementStatus.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.getElementById("loadTeamFile").addEventListener("click", () => {
+  teamFileInput.click();
+});
+
+teamFileInput.addEventListener("change", async event => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  try {
+    await loadTeamFile(file);
+    placementStatus.textContent =
+      `「${file.name}」から自チームを読み込みました。`;
+  } catch (error) {
+    placementStatus.textContent =
+      error instanceof SyntaxError
+        ? "JSONファイルを読み取れませんでした。"
+        : error.message;
+  } finally {
+    event.target.value = "";
+  }
 });
 
 document.getElementById("startBattle").addEventListener("click", () => {
