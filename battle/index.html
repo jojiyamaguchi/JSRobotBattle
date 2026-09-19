@@ -85,11 +85,23 @@
     margin: 0;
     padding-left: 20px;
   }
-  .battle-actions {
+  .battle-actions,
+  .battle-primary-actions,
+  .battle-file-actions {
     display: flex;
     align-items: center;
     gap: 9px;
     flex-wrap: wrap;
+  }
+  .battle-actions {
+    justify-content: space-between;
+  }
+  .team-selection-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    text-decoration: none;
   }
   #startButton {
     min-height: 44px;
@@ -248,10 +260,15 @@
   </div>
 
   <div class="battle-actions">
-    <input id="teamFileInput" type="file" accept=".json,application/json" hidden>
-    <button id="saveTeamFile" class="secondary-button" type="button">チームを保存</button>
-    <button id="loadTeamFile" class="secondary-button" type="button">チームを読み込む</button>
-    <button id="startButton" type="button">バトル開始</button>
+    <div class="battle-primary-actions">
+      <button id="startButton" type="button">バトル開始</button>
+      <a class="secondary-button team-selection-link" href="../">チーム編成</a>
+    </div>
+    <div class="battle-file-actions">
+      <input id="teamFileInput" type="file" accept=".json,application/json" hidden>
+      <button id="saveTeamFile" class="secondary-button" type="button">チームを保存</button>
+      <button id="loadTeamFile" class="secondary-button" type="button">チームを読み込む</button>
+    </div>
   </div>
   <p id="battleStatus" aria-live="polite"></p>
   <div class="battle-legend" aria-label="表示の説明">
