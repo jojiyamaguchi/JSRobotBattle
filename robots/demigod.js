@@ -30,7 +30,6 @@ let detourFrames = 0;
 let advanceSteps = 0;
 let rangedSupportFrames = 0;
 let rangedSupportTarget = null;
-let openingPerformanceTurns = 2;
 
 function canUseRegularAction(data, cost) {
   return data.energy >= EVASION_ENERGY_RESERVE + cost;
@@ -264,17 +263,6 @@ self.onmessage = ({data}) => {
   const allies = data.players.filter(player => player.color === data.color);
   const target = enemies[0];
   if (!target) return;
-
-  // 最初の2ターンは初期位置でパンチを披露する、強者の余裕の演出
-  if (openingPerformanceTurns > 0) {
-    if (data.energy >= PUNCH_COST) {
-      openingPerformanceTurns--;
-      postMessage({action: {type: "punch"}});
-    } else {
-      postMessage({action: {type: "charge"}});
-    }
-    return;
-  }
 
   // パンチが命中する直前は、温存エネルギーを使ってシールドする
   const incomingPunch = data.punches.find(
