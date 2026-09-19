@@ -11,7 +11,8 @@ const PUNCH_COST = 6;
 const BULLET_EVASION_DISTANCE = 55;
 const BULLET_SHIELD_DISTANCE = 17;
 const PUNCH_SHIELD_DISTANCE = 22;
-const EVASION_LOOK_AHEAD = 24;
+const EVASION_COLLISION_MARGIN = 11;
+const EVASION_CLEARANCE = 12;
 const ROBOT_RADIUS = 10;
 const FIELD_WIDTH = 400;
 const FIELD_HEIGHT = 600;
@@ -93,37 +94,97 @@ function isIncomingBullet(bullet, data) {
   );
 }
 
-function emergencyEvadeDirection(bullet) {
-  // 弾丸が入ってくる側とは反対の、斜め前方へ回避する
-  return bullet.angle >= 0 ? 45 : -45;
-}
+function evaluateEmergencyEvasion(bullet, data, allies, direction) {
+  const bulletSpeed = Math.hypot(bullet.vx, bullet.vy);
+  if (bulletSpeed === 0 || data.energy < MOVE_COST) return null;
 
-function emergencyEvadePathIsClear(data, allies, direction) {
-  const angle = (data.dir - direction) * Math.PI / 180;
+  const bulletUnitX = bullet.vx / bulletSpeed;
+  const bulletUnitY = bullet.vy / bulletSpeed;
+  const toRobotX = data.x - bullet.x;
+  const toRobotY = data.y - bullet.y;
+  const framesToClosestPoint =
+    (toRobotX * bullet.vx + toRobotY * bullet.vy) /
+    (bulletSpeed * bulletSpeed);
+  if (framesToClosestPoint < 0) return null;
 
-  // 斜め前方24pxまでを確認し、端や味方があれば回避不可とする
-  for (let distance = 6; distance <= EVASION_LOOK_AHEAD; distance += 6) {
-    const x = data.x + Math.cos(angle) * distance;
-    const y = data.y + Math.sin(angle) * distance;
+  // 衝突予測までに実行できる移動回数を、その時点のエネルギーも含めて計算
+  const framesUntilImpact = Math.max(1, Math.ceil(framesToClosestPoint));
+  const energyLimitedSteps = Math.max(0, Math.floor(data.energy) - 1);
+  const availableSteps = Math.min(framesUntilImpact, energyLimitedSteps);
+  if (availableSteps === 0) return null;
+
+  const moveAngle = (data.dir - direction) * Math.PI / 180;
+  const moveX = Math.cos(moveAngle);
+  const moveY = Math.sin(moveAngle);
+
+  // 弾道に対して横へ移動できる幅が、必要な回避幅に届くかを先に確認
+  const normalX = -bulletUnitY;
+  const normalY = bulletUnitX;
+  const currentLateralOffset =
+    toRobotX * normalX + toRobotY * normalY;
+  const lateralMovePerStep =
+    moveX * normalX + moveY * normalY;
+  const finalLateralOffset =
+    currentLateralOffset + lateralMovePerStep * availableSteps;
+  const availableEvasionWidth =
+    Math.max(0, Math.abs(finalLateralOffset) - Math.abs(currentLateralOffset));
+  const requiredEvasionWidth =
+    Math.max(0, EVASION_CLEARANCE - Math.abs(currentLateralOffset));
+
+  if (availableEvasionWidth < requiredEvasionWidth) return null;
+
+  // 実際の更新単位で、フィールド端・味方・弾丸との位置関係を先読みする
+  const framesToCheck = framesUntilImpact + 2;
+  for (let frame = 1; frame <= framesToCheck; frame++) {
+    const movedSteps = Math.min(frame, availableSteps);
+    const robotX = data.x + moveX * movedSteps;
+    const robotY = data.y + moveY * movedSteps;
 
     if (
-      x < ROBOT_RADIUS ||
-      x > FIELD_WIDTH - ROBOT_RADIUS ||
-      y < ROBOT_RADIUS ||
-      y > FIELD_HEIGHT - ROBOT_RADIUS
+      robotX < ROBOT_RADIUS ||
+      robotX > FIELD_WIDTH - ROBOT_RADIUS ||
+      robotY < ROBOT_RADIUS ||
+      robotY > FIELD_HEIGHT - ROBOT_RADIUS
     ) {
-      return false;
+      return null;
     }
 
     if (
       allies.some(ally =>
-        Math.hypot(ally.x - x, ally.y - y) < ROBOT_RADIUS * 2 + 4
+        Math.hypot(ally.x - robotX, ally.y - robotY) <
+        ROBOT_RADIUS * 2 + 4
       )
     ) {
-      return false;
+      return null;
+    }
+
+    const bulletX = bullet.x + bullet.vx * frame;
+    const bulletY = bullet.y + bullet.vy * frame;
+    if (
+      Math.abs(robotX - bulletX) < EVASION_COLLISION_MARGIN &&
+      Math.abs(robotY - bulletY) < EVASION_COLLISION_MARGIN
+    ) {
+      return null;
     }
   }
-  return true;
+
+  return {
+    direction,
+    availableEvasionWidth,
+    requiredEvasionWidth,
+    finalClearance: Math.abs(finalLateralOffset)
+  };
+}
+
+function calculateEmergencyEvasion(bullet, data, allies) {
+  // 入射側の反対を優先しつつ、左右両方の斜め前方を計算する
+  const preferredDirection = bullet.angle >= 0 ? 45 : -45;
+  return [preferredDirection, -preferredDirection]
+    .map(direction =>
+      evaluateEmergencyEvasion(bullet, data, allies, direction)
+    )
+    .filter(Boolean)
+    .sort((a, b) => b.finalClearance - a.finalClearance)[0] || null;
 }
 
 self.onmessage = ({data}) => {
@@ -148,20 +209,21 @@ self.onmessage = ({data}) => {
     .sort((a, b) => a.distance - b.distance)[0];
 
   if (incomingBullet) {
-    const evadeDirection = emergencyEvadeDirection(incomingBullet);
-    const canEvade =
-      data.energy >= MOVE_COST &&
-      emergencyEvadePathIsClear(data, allies, evadeDirection);
+    const evasion = calculateEmergencyEvasion(
+      incomingBullet,
+      data,
+      allies
+    );
 
-    if (canEvade) {
-      // 回避時だけ、50の回避用温存エネルギーを使用してよい
+    if (evasion) {
+      // 必要な回避幅を確保できる時だけ、温存エネルギーで緊急回避する
       postMessage({
-        action: {type: "move", dir: evadeDirection}
+        action: {type: "move", dir: evasion.direction}
       });
       return;
     }
 
-    // 回避先が端または味方で塞がれている時は、衝突直前にシールドする
+    // 移動幅が足りない時や、端・味方で塞がれている時は直前にシールドする
     if (
       incomingBullet.distance <= BULLET_SHIELD_DISTANCE &&
       data.energy >= 4
