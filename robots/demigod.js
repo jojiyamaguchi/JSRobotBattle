@@ -3,16 +3,14 @@
 
 const BULLET_SHIELD_DISTANCE = 17;
 const PUNCH_SHIELD_DISTANCE = 22;
-const FIRE_DISTANCE = 90;
+const MIN_FIRE_DISTANCE = 35;
+const ADVANCE_STEPS_BEFORE_SHOT = 30;
 const ROUTE_WIDTH = 24;
 const SHOT_WIDTH = 14;
 
 let detourDirection = 60;
 let detourFrames = 0;
-
-function distanceBetween(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
+let advanceSteps = 0;
 
 // startからendへ向かう線分に、pointがどれくらい近いかを調べる
 function pointOnRoute(point, start, end, width, endMargin = 0) {
@@ -89,6 +87,7 @@ self.onmessage = ({data}) => {
     detourFrames--;
 
     if (data.energy >= 2) {
+      advanceSteps++;
       postMessage({
         action: {type: "move", dir: detourDirection}
       });
@@ -129,18 +128,42 @@ self.onmessage = ({data}) => {
     pointOnRoute(ally, data, target, SHOT_WIDTH, 10)
   );
 
-  // 遠距離では安全な射線が取れた時だけ射撃する
-  if (
-    target.distance >= FIRE_DISTANCE &&
-    !friendlyInShotLine &&
-    data.energy >= 40
-  ) {
-    postMessage({action: {type: "fire"}});
+  const timeToShoot =
+    advanceSteps >= ADVANCE_STEPS_BEFORE_SHOT &&
+    target.distance >= MIN_FIRE_DISTANCE;
+
+  if (timeToShoot) {
+    // 射線上に味方がいる間は発射せず、横へずれて射線を作る
+    if (friendlyInShotLine) {
+      const blocker = allies.find(ally =>
+        pointOnRoute(ally, data, target, SHOT_WIDTH, 10)
+      );
+      if (blocker && detourFrames <= 0) chooseDetour(data, blocker);
+
+      if (data.energy >= 2) {
+        advanceSteps++;
+        postMessage({
+          action: {type: "move", dir: detourDirection}
+        });
+      } else {
+        postMessage({action: {type: "charge"}});
+      }
+      return;
+    }
+
+    // 足を止め、射撃エネルギーが整うまで待ってから発射する
+    if (data.energy >= 40) {
+      advanceSteps = 0;
+      postMessage({action: {type: "fire"}});
+    } else {
+      postMessage({action: {type: "charge"}});
+    }
     return;
   }
 
-  // 射撃できない時は、味方を避けながら接近戦へ持ち込む
+  // 一定距離を前進したら、次の射撃のために停止する
   if (data.energy >= 2) {
+    advanceSteps++;
     postMessage({action: {type: "move", dir: 0}});
   } else {
     postMessage({action: {type: "charge"}});
