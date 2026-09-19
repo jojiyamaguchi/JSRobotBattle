@@ -462,6 +462,15 @@ const typeLabels = {
   ninja2: "ニンジャ Lv2",
   demigod: "デミゴッド"
 };
+const robotTypeOrder = [
+  "infighter1",
+  "sniper1",
+  "infighter2",
+  "sniper2",
+  "ninja1",
+  "ninja2",
+  "demigod"
+];
 
 const robotPrograms = {
   infighter1: "robots/infighter-level1.js",
@@ -503,7 +512,8 @@ const unlockRequirements = {
 
 const achievementConditions = {
   ninja1: "相手チームLv4に勝利で解放",
-  ninja2: "相手チームLv5に勝利で解放"
+  ninja2: "相手チームLv5に勝利で解放",
+  demigod: "相手チームLv7に勝利で解放"
 };
 
 function loadBattleCount() {
@@ -516,10 +526,11 @@ function loadAchievementUnlocks() {
     const saved = JSON.parse(localStorage.getItem(ACHIEVEMENT_UNLOCKS_KEY));
     return {
       ninja1: saved?.ninja1 === true,
-      ninja2: saved?.ninja2 === true
+      ninja2: saved?.ninja2 === true,
+      demigod: saved?.demigod === true
     };
   } catch {
-    return {ninja1: false, ninja2: false};
+    return {ninja1: false, ninja2: false, demigod: false};
   }
 }
 
@@ -527,8 +538,6 @@ const battleCount = loadBattleCount();
 const achievementUnlocks = loadAchievementUnlocks();
 
 function isRobotUnlocked(type) {
-  // デミゴッドは相手チーム専用
-  if (type === "demigod") return false;
   if (Object.hasOwn(achievementConditions, type)) {
     return achievementUnlocks[type];
   }
@@ -573,7 +582,7 @@ const enemyTeamPresets = {
   level7: {
     label: "Lv7 デミゴッド",
     type: "demigod",
-    description: "デミゴッド × 3体　味方を誤射せず、攻撃を直前で防ぐ最強チーム"
+    description: "優れた状況判断力を持つ最強チーム"
   },
   custom: {
     label: "カスタム",
@@ -787,15 +796,17 @@ function refreshControls() {
 
   document.querySelectorAll(".own-type").forEach(select => {
     const index = Number(select.dataset.index);
+    const unlockedOptions = robotTypeOrder
+      .filter(type => isRobotUnlocked(type))
+      .map(type => {
+        const option = document.createElement("option");
+        option.value = type;
+        option.textContent = typeLabels[type];
+        return option;
+      });
 
-    select.querySelectorAll("option").forEach(option => {
-      const locked = !isRobotUnlocked(option.value);
-      option.disabled = locked;
-      option.textContent = locked
-        ? `${typeLabels[option.value]}（${unlockConditionLabel(option.value)}）`
-        : typeLabels[option.value];
-    });
-
+    // アンロックされていない機体は選択肢そのものを表示しない
+    select.replaceChildren(...unlockedOptions);
     select.value = config.own[index].type;
   });
 
