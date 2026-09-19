@@ -445,7 +445,7 @@ const enemyTeamUnlockDescriptions = {
   4: "相手の攻撃をシールドしながら射撃します！",
   5: "相手の攻撃をシールドしながら接近戦に持ち込みます！",
   6: "なんと分身の術を使います！",
-  7: "味方を誤射せず、攻撃を直前で防ぐ最強のチームです！"
+  7: "優れた状況判断力を持つ最強チーム"
 };
 const enemyTeamTypes = {
   1: "infighter1",
@@ -482,10 +482,11 @@ function loadAchievementUnlocks() {
     const saved = JSON.parse(localStorage.getItem(ACHIEVEMENT_UNLOCKS_KEY));
     return {
       ninja1: saved?.ninja1 === true,
-      ninja2: saved?.ninja2 === true
+      ninja2: saved?.ninja2 === true,
+      demigod: saved?.demigod === true
     };
   } catch {
-    return {ninja1: false, ninja2: false};
+    return {ninja1: false, ninja2: false, demigod: false};
   }
 }
 
@@ -493,9 +494,7 @@ let battleCount = loadBattleCount();
 const achievementUnlocks = loadAchievementUnlocks();
 
 function isRobotUnlocked(type) {
-  // デミゴッドは相手チーム専用
-  if (type === "demigod") return false;
-  if (type === "ninja1" || type === "ninja2") {
+  if (type === "ninja1" || type === "ninja2" || type === "demigod") {
     return achievementUnlocks[type];
   }
   return battleCount >= robotUnlockRequirements[type];
@@ -521,6 +520,10 @@ function recordBattleCompletion(ownTeamWon) {
     if (enemyTeamPreset === "level5" && !achievementUnlocks.ninja2) {
       achievementUnlocks.ninja2 = true;
       unlockedItems.push("ニンジャLv2");
+    }
+    if (enemyTeamPreset === "level7" && !achievementUnlocks.demigod) {
+      achievementUnlocks.demigod = true;
+      unlockedItems.push("デミゴッド");
     }
     localStorage.setItem(
       ACHIEVEMENT_UNLOCKS_KEY,
