@@ -179,6 +179,10 @@
   }
 
   .own-panel .unit-mark {
+    width: auto;
+    min-width: 48px;
+    padding: 0 8px;
+    border-radius: 999px;
     background: var(--orange);
   }
 
@@ -368,16 +372,16 @@
     <section class="field-panel">
       <div class="field-heading">
         <h2>初期配置</h2>
-        <p>自機を選び、オレンジ色のエリアをタップして配置します。</p>
+        <p>機体を選び、オレンジ色のフィールドをタップして配置します。</p>
       </div>
       <canvas
         id="selectionField"
         width="400"
-        height="600"
+        height="200"
         tabindex="0"
-        aria-label="上部が相手チーム、下部が自チームの配置フィールド"
+        aria-label="自チームの初期配置フィールド"
       ></canvas>
-      <p id="placementStatus" aria-live="polite">自機1を選択中です。下のオレンジ色のエリアをタップしてください。</p>
+      <p id="placementStatus" aria-live="polite">1号機を選択中です。オレンジ色のフィールドをタップしてください。</p>
     </section>
 
     <section class="panel own-panel">
@@ -387,10 +391,10 @@
 
       <div class="unit-card own-card selected" data-index="0">
         <div class="unit-title">
-          <button class="unit-focus" type="button" data-index="0">自機1を選択</button>
-          <span class="unit-mark">A1</span>
+          <button class="unit-focus" type="button" data-index="0">1号機を選択</button>
+          <span class="unit-mark">1号機</span>
         </div>
-        <select class="own-type" data-index="0" aria-label="自機1のタイプ">
+        <select class="own-type" data-index="0" aria-label="1号機のタイプ">
           <option value="infighter1">インファイター Lv1</option>
           <option value="infighter2">インファイター Lv2</option>
           <option value="sniper1">スナイパー Lv1</option>
@@ -401,10 +405,10 @@
       </div>
       <div class="unit-card own-card" data-index="1">
         <div class="unit-title">
-          <button class="unit-focus" type="button" data-index="1">自機2を選択</button>
-          <span class="unit-mark">A2</span>
+          <button class="unit-focus" type="button" data-index="1">2号機を選択</button>
+          <span class="unit-mark">2号機</span>
         </div>
-        <select class="own-type" data-index="1" aria-label="自機2のタイプ">
+        <select class="own-type" data-index="1" aria-label="2号機のタイプ">
           <option value="infighter1">インファイター Lv1</option>
           <option value="infighter2">インファイター Lv2</option>
           <option value="sniper1">スナイパー Lv1</option>
@@ -415,10 +419,10 @@
       </div>
       <div class="unit-card own-card" data-index="2">
         <div class="unit-title">
-          <button class="unit-focus" type="button" data-index="2">自機3を選択</button>
-          <span class="unit-mark">A3</span>
+          <button class="unit-focus" type="button" data-index="2">3号機を選択</button>
+          <span class="unit-mark">3号機</span>
         </div>
-        <select class="own-type" data-index="2" aria-label="自機3のタイプ">
+        <select class="own-type" data-index="2" aria-label="3号機のタイプ">
           <option value="infighter1">インファイター Lv1</option>
           <option value="infighter2">インファイター Lv2</option>
           <option value="sniper1">スナイパー Lv1</option>
@@ -440,8 +444,8 @@
 
 <script>
 const FIELD_WIDTH = 400;
-const FIELD_HEIGHT = 600;
-const OWN_ZONE_TOP = FIELD_HEIGHT * 2 / 3;
+const FIELD_HEIGHT = 200;
+const BATTLEFIELD_Y_OFFSET = 400;
 const STORAGE_KEY = "progrobots-battle-config-v1";
 const ENEMY_TEAM_KEY = "progrobots-enemy-team-v1";
 const ENEMY_PROGRESS_KEY = "progrobots-enemy-progress-v1";
@@ -671,37 +675,25 @@ const enemyCustomUnits = document.getElementById("enemyCustomUnits");
 
 function drawField() {
   ctx.clearRect(0, 0, FIELD_WIDTH, FIELD_HEIGHT);
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "rgba(232, 129, 36, 0.14)";
   ctx.fillRect(0, 0, FIELD_WIDTH, FIELD_HEIGHT);
 
-  ctx.fillStyle = "rgba(65, 146, 84, 0.12)";
-  ctx.fillRect(0, 0, FIELD_WIDTH, FIELD_HEIGHT / 3);
-  ctx.fillStyle = "rgba(232, 129, 36, 0.14)";
-  ctx.fillRect(0, OWN_ZONE_TOP, FIELD_WIDTH, FIELD_HEIGHT / 3);
-
-  ctx.save();
-  ctx.setLineDash([7, 7]);
-  ctx.strokeStyle = "rgba(70, 78, 67, 0.32)";
-  ctx.beginPath();
-  ctx.moveTo(0, FIELD_HEIGHT / 3);
-  ctx.lineTo(FIELD_WIDTH, FIELD_HEIGHT / 3);
-  ctx.moveTo(0, OWN_ZONE_TOP);
-  ctx.lineTo(FIELD_WIDTH, OWN_ZONE_TOP);
-  ctx.stroke();
-  ctx.restore();
-
-  ctx.fillStyle = "rgba(45, 90, 54, 0.7)";
-  ctx.font = "bold 13px system-ui";
-  ctx.fillText("相手チーム配置エリア", 14, 24);
   ctx.fillStyle = "rgba(145, 75, 18, 0.75)";
-  ctx.fillText("自チーム配置エリア", 14, OWN_ZONE_TOP + 24);
-
-  config.enemy.forEach((unit, index) => {
-    drawRobot(unit, "#419254", "E" + (index + 1), 90, false);
-  });
+  ctx.font = "bold 13px system-ui";
+  ctx.fillText("自チーム配置エリア", 14, 24);
 
   config.own.forEach((unit, index) => {
-    drawRobot(unit, "#e88124", "A" + (index + 1), 270, index === selectedOwn);
+    const displayUnit = {
+      ...unit,
+      y: unit.y - BATTLEFIELD_Y_OFFSET
+    };
+    drawRobot(
+      displayUnit,
+      "#e88124",
+      (index + 1) + "号機",
+      270,
+      index === selectedOwn
+    );
   });
 }
 
@@ -752,7 +744,8 @@ function drawRobot(unit, color, label, direction, selected) {
   ctx.fillStyle = "#202124";
   ctx.font = "bold 12px system-ui";
   ctx.textAlign = "center";
-  ctx.fillText(label, unit.x, unit.y + 38);
+  const labelY = unit.y > FIELD_HEIGHT - 35 ? unit.y - 30 : unit.y + 38;
+  ctx.fillText(label, unit.x, labelY);
   ctx.font = "11px system-ui";
   ctx.fillText(isSniper ? "S" : isNinja ? "N" : "I", unit.x, unit.y + 4);
   ctx.textAlign = "start";
@@ -827,7 +820,7 @@ function selectOwnUnit(index) {
   selectedOwn = index;
   refreshControls();
   drawField();
-  placementStatus.textContent = "自機" + (index + 1) + "を選択中です。オレンジ色のエリアをタップしてください。";
+  placementStatus.textContent = (index + 1) + "号機を選択中です。オレンジ色のフィールドをタップしてください。";
 }
 
 function saveConfig() {
@@ -1025,7 +1018,7 @@ document.querySelectorAll(".own-type").forEach(select => {
     saveConfig();
     refreshControls();
     drawField();
-    placementStatus.textContent = "自機" + (index + 1) + "を" + typeLabels[event.target.value] + "に変更しました。";
+    placementStatus.textContent = (index + 1) + "号機を" + typeLabels[event.target.value] + "に変更しました。";
   });
 });
 
@@ -1047,7 +1040,10 @@ canvas.addEventListener("pointerdown", event => {
   const pointerY = (event.clientY - rect.top) * FIELD_HEIGHT / rect.height;
 
   const hitIndex = config.own.findIndex(unit =>
-    Math.hypot(unit.x - pointerX, unit.y - pointerY) <= 26
+    Math.hypot(
+      unit.x - pointerX,
+      unit.y - BATTLEFIELD_Y_OFFSET - pointerY
+    ) <= 26
   );
 
   if (hitIndex >= 0) {
@@ -1055,19 +1051,15 @@ canvas.addEventListener("pointerdown", event => {
     return;
   }
 
-  if (pointerY < OWN_ZONE_TOP) {
-    placementStatus.textContent = "自チームは、下1/3のオレンジ色のエリア内に配置してください。";
-    return;
-  }
-
   const x = Math.max(20, Math.min(380, Math.round(pointerX / 20) * 20));
-  const y = Math.max(420, Math.min(580, Math.round(pointerY / 20) * 20));
+  const displayY = Math.max(20, Math.min(180, Math.round(pointerY / 20) * 20));
+  const y = displayY + BATTLEFIELD_Y_OFFSET;
   const overlaps = config.own.some((unit, index) =>
     index !== selectedOwn && Math.hypot(unit.x - x, unit.y - y) < 36
   );
 
   if (overlaps) {
-    placementStatus.textContent = "ほかの自機と重なるため、少し離れた位置を選んでください。";
+    placementStatus.textContent = "ほかの機体と重なるため、少し離れた位置を選んでください。";
     return;
   }
 
@@ -1075,7 +1067,7 @@ canvas.addEventListener("pointerdown", event => {
   config.own[selectedOwn].y = y;
   saveConfig();
   drawField();
-  placementStatus.textContent = "自機" + (selectedOwn + 1) + "を配置しました。";
+  placementStatus.textContent = (selectedOwn + 1) + "号機を配置しました。";
 });
 
 const teamFileInput = document.getElementById("teamFileInput");
