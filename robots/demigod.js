@@ -30,6 +30,7 @@ let detourFrames = 0;
 let advanceSteps = 0;
 let rangedSupportFrames = 0;
 let rangedSupportTarget = null;
+let openingPerformanceTurns = 2;
 
 function canUseRegularAction(data, cost) {
   return data.energy >= EVASION_ENERGY_RESERVE + cost;
@@ -58,6 +59,23 @@ function pointOnRoute(point, start, end, width, endMargin = 0) {
 
 function distanceBetween(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function friendlyIsInShotPath(ally, start, target) {
+  const shotX = target.x - start.x;
+  const shotY = target.y - start.y;
+  const shotLength = Math.hypot(shotX, shotY);
+  if (shotLength === 0) return false;
+
+  const allyX = ally.x - start.x;
+  const allyY = ally.y - start.y;
+  const projection =
+    (allyX * shotX + allyY * shotY) / shotLength;
+  if (projection <= 5 || projection >= shotLength) return false;
+
+  const perpendicular =
+    Math.abs(allyX * shotY - allyY * shotX) / shotLength;
+  return perpendicular < SHOT_WIDTH;
 }
 
 function friendlyWouldBeHitByPunch(data, allies) {
@@ -247,6 +265,17 @@ self.onmessage = ({data}) => {
   const target = enemies[0];
   if (!target) return;
 
+  // 最初の2ターンは初期位置でパンチを披露する、強者の余裕の演出
+  if (openingPerformanceTurns > 0) {
+    if (data.energy >= PUNCH_COST) {
+      openingPerformanceTurns--;
+      postMessage({action: {type: "punch"}});
+    } else {
+      postMessage({action: {type: "charge"}});
+    }
+    return;
+  }
+
   // パンチが命中する直前は、温存エネルギーを使ってシールドする
   const incomingPunch = data.punches.find(
     punch =>
@@ -312,7 +341,28 @@ self.onmessage = ({data}) => {
   }
 
   if (rangedSupportFrames > 0) {
-    // 味方が格闘中の標的には接近せず、射撃支援へ切り替える
+    // 偶然パンチ圏内にいる場合は、味方を巻き込まない時だけ格闘する
+    if (target.distance <= 3) {
+      if (Math.abs(target.angle) > 5) {
+        if (canUseRegularAction(data, TURN_COST)) {
+          postMessage({action: {type: "turn", dir: target.angle}});
+        } else {
+          postMessage({action: {type: "charge"}});
+        }
+        return;
+      }
+
+      if (!friendlyWouldBeHitByPunch(data, allies)) {
+        if (canUseRegularAction(data, PUNCH_COST)) {
+          postMessage({action: {type: "punch"}});
+        } else {
+          postMessage({action: {type: "charge"}});
+        }
+        return;
+      }
+    }
+
+    // 味方が格闘中の標的には新たに接近せず、射撃支援へ切り替える
     if (Math.abs(target.angle) > 3) {
       if (canUseRegularAction(data, TURN_COST)) {
         postMessage({action: {type: "turn", dir: target.angle}});
@@ -323,7 +373,7 @@ self.onmessage = ({data}) => {
     }
 
     const supportBlocker = allies.find(ally =>
-      pointOnRoute(ally, data, target, SHOT_WIDTH, 10)
+      friendlyIsInShotPath(ally, data, target)
     );
 
     if (supportBlocker) {
@@ -404,7 +454,7 @@ self.onmessage = ({data}) => {
 
   // 射線上に味方がいる場合は発射しない
   const friendlyInShotLine = allies.some(ally =>
-    pointOnRoute(ally, data, target, SHOT_WIDTH, 10)
+    friendlyIsInShotPath(ally, data, target)
   );
 
   const timeToShoot =
@@ -415,7 +465,7 @@ self.onmessage = ({data}) => {
     // 射線上に味方がいる間は、温存分を残して横へずれる
     if (friendlyInShotLine) {
       const blocker = allies.find(ally =>
-        pointOnRoute(ally, data, target, SHOT_WIDTH, 10)
+        friendlyIsInShotPath(ally, data, target)
       );
       if (blocker && detourFrames <= 0) chooseDetour(data, blocker);
 
