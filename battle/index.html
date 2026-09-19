@@ -2126,6 +2126,8 @@ async function gameLoop() {
       const bulletInfo = bullets.map(bullet => ({
           x: bullet.x,
           y: bullet.y,
+          vx: bullet.vx,
+          vy: bullet.vy,
           color: bullet.color,
           distance: distance(p.x, p.y, bullet.x, bullet.y),
           angle: angleDifference(p.dir, angleTo(p.x, p.y, bullet.x, bullet.y))
