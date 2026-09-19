@@ -822,9 +822,28 @@ function robotCodeStorageKey(index, type) {
   return `progrobots-robot-code-v1-${index}-${type}`;
 }
 
-async function codeForTeamExport(index, type) {
-  const savedCode = localStorage.getItem(robotCodeStorageKey(index, type));
-  if (savedCode !== null) return savedCode;
+function sharedRobotCodeStorageKey(type) {
+  return `progrobots-robot-code-v2-${type}`;
+}
+
+async function codeForTeamExport(type) {
+  const sharedCode = localStorage.getItem(sharedRobotCodeStorageKey(type));
+  if (sharedCode !== null) return sharedCode;
+
+  const matchingIndexes = config.own
+    .map((unit, index) => unit.type === type ? index : -1)
+    .filter(index => index >= 0);
+
+  for (const index of matchingIndexes) {
+    const legacyCode = localStorage.getItem(robotCodeStorageKey(index, type));
+    if (legacyCode !== null) {
+      localStorage.setItem(sharedRobotCodeStorageKey(type), legacyCode);
+      matchingIndexes.forEach(robotIndex => {
+        localStorage.removeItem(robotCodeStorageKey(robotIndex, type));
+      });
+      return legacyCode;
+    }
+  }
 
   const response = await fetch(robotPrograms[type], {cache: "no-store"});
   if (!response.ok) {
@@ -848,12 +867,18 @@ function downloadTeamJson(teamData) {
 }
 
 async function saveTeamFile() {
-  const units = await Promise.all(config.own.map(async (unit, index) => ({
+  const codeByType = {};
+  await Promise.all(
+    [...new Set(config.own.map(unit => unit.type))].map(async type => {
+      codeByType[type] = await codeForTeamExport(type);
+    })
+  );
+  const units = config.own.map(unit => ({
     type: unit.type,
     x: unit.x,
     y: unit.y,
-    code: await codeForTeamExport(index, unit.type)
-  })));
+    code: codeByType[unit.type]
+  }));
 
   downloadTeamJson({
     format: TEAM_FILE_FORMAT,
@@ -909,6 +934,14 @@ function validateImportedTeam(teamData) {
       }
     }
   }
+
+  const codeByType = {};
+  units.forEach(unit => {
+    if (!Object.hasOwn(codeByType, unit.type)) {
+      codeByType[unit.type] = unit.code;
+    }
+    unit.code = codeByType[unit.type];
+  });
   return units;
 }
 
@@ -919,8 +952,12 @@ async function loadTeamFile(file) {
 
   const units = validateImportedTeam(JSON.parse(await file.text()));
   config.own = units.map(({type, x, y}) => ({type, x, y}));
+  [...new Set(units.map(unit => unit.type))].forEach(type => {
+    const source = units.find(unit => unit.type === type).code;
+    localStorage.setItem(sharedRobotCodeStorageKey(type), source);
+  });
   units.forEach((unit, index) => {
-    localStorage.setItem(robotCodeStorageKey(index, unit.type), unit.code);
+    localStorage.removeItem(robotCodeStorageKey(index, unit.type));
   });
   selectedOwn = 0;
   saveConfig();
