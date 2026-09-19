@@ -93,8 +93,11 @@
     gap: 9px;
     flex-wrap: wrap;
   }
-  .battle-actions {
-    justify-content: space-between;
+  .battle-file-actions-bottom {
+    justify-content: center;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #d7dcd3;
   }
   .team-selection-link {
     display: inline-flex;
@@ -142,7 +145,8 @@
     flex-wrap: wrap;
   }
   body.sniper-tutorial-locked .page-nav,
-  body.sniper-tutorial-locked .battle-actions {
+  body.sniper-tutorial-locked .battle-actions,
+  body.sniper-tutorial-locked .battle-file-actions {
     pointer-events: none;
     opacity: 0.42;
   }
@@ -272,11 +276,6 @@
       <button id="startButton" type="button">バトル開始</button>
       <a class="secondary-button team-selection-link" href="../">チーム編成</a>
     </div>
-    <div class="battle-file-actions">
-      <input id="teamFileInput" type="file" accept=".json,application/json" hidden>
-      <button id="saveTeamFile" class="secondary-button" type="button">チームを保存</button>
-      <button id="loadTeamFile" class="secondary-button" type="button">チームを読み込む</button>
-    </div>
   </div>
   <p id="battleStatus" aria-live="polite"></p>
   <div class="battle-legend" aria-label="表示の説明">
@@ -302,6 +301,12 @@
       <button id="resetRobotCode" class="secondary-button" type="button">初期コードに戻す</button>
     </div>
   </section>
+
+  <div class="battle-file-actions battle-file-actions-bottom">
+    <input id="teamFileInput" type="file" accept=".json,application/json" hidden>
+    <button id="saveTeamFile" class="secondary-button" type="button">チームを保存</button>
+    <button id="loadTeamFile" class="secondary-button" type="button">チームを読み込む</button>
+  </div>
 
 <script>
 let players = [];
