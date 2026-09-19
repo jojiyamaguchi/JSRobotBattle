@@ -288,7 +288,7 @@
         <button id="closeCodeEditor" class="secondary-button" type="button">閉じる</button>
       </div>
     </header>
-    <p class="code-editor-note">編集内容は自動保存され、次のバトル開始時から反映されます。</p>
+    <p class="code-editor-note">編集内容は自動保存され、同じタイプの自機すべてに反映されます。次のバトル開始時から動作します。</p>
     <textarea id="robotCodeEditor" aria-label="選択したロボットのJavaScriptコード" spellcheck="false"></textarea>
     <div class="code-editor-actions">
       <button id="resetRobotCode" class="secondary-button" type="button">初期コードに戻す</button>
@@ -597,6 +597,24 @@ function robotCodeStorageKey(index, type) {
   return `progrobots-robot-code-v1-${index}-${type}`;
 }
 
+function sharedRobotCodeStorageKey(type) {
+  return `progrobots-robot-code-v2-${type}`;
+}
+
+function ownRobotIndexesOfType(type) {
+  return battleConfig.own
+    .map((unit, index) => unit.type === type ? index : -1)
+    .filter(index => index >= 0);
+}
+
+function applyCodeToOwnType(type, source) {
+  ownRobotIndexesOfType(type).forEach(index => {
+    robotCodes[index] = source;
+    localStorage.removeItem(robotCodeStorageKey(index, type));
+  });
+  localStorage.setItem(sharedRobotCodeStorageKey(type), source);
+}
+
 async function fetchRobotSource(type, fresh = false) {
   const sourceUrl = new URL(robotPrograms[type], window.location.href);
   if (fresh) {
@@ -620,10 +638,30 @@ async function loadRobotCodes() {
     defaultRobotSources[type] = await fetchRobotSource(type);
   }));
 
+  const ownCodesByType = {};
+  [...new Set(battleConfig.own.map(unit => unit.type))].forEach(type => {
+    let source = localStorage.getItem(sharedRobotCodeStorageKey(type));
+
+    if (source === null) {
+      const matchingIndexes = ownRobotIndexesOfType(type);
+      for (const index of matchingIndexes) {
+        source = localStorage.getItem(robotCodeStorageKey(index, type));
+        if (source !== null) break;
+      }
+
+      if (source !== null) {
+        localStorage.setItem(sharedRobotCodeStorageKey(type), source);
+        matchingIndexes.forEach(index => {
+          localStorage.removeItem(robotCodeStorageKey(index, type));
+        });
+      }
+    }
+
+    ownCodesByType[type] = source ?? defaultRobotSources[type];
+  });
+
   robotCodes = [
-    ...battleConfig.own.map((unit, index) =>
-      localStorage.getItem(robotCodeStorageKey(index, unit.type)) ?? defaultRobotSources[unit.type]
-    ),
+    ...battleConfig.own.map(unit => ownCodesByType[unit.type]),
     ...battleConfig.enemy.map(unit => defaultRobotSources[unit.type])
   ];
 }
@@ -702,6 +740,14 @@ function validateImportedTeam(teamData) {
       }
     }
   }
+
+  const codeByType = {};
+  units.forEach(unit => {
+    if (!Object.hasOwn(codeByType, unit.type)) {
+      codeByType[unit.type] = unit.code;
+    }
+    unit.code = codeByType[unit.type];
+  });
   return units;
 }
 
@@ -712,8 +758,12 @@ async function loadTeamFile(file) {
 
   const units = validateImportedTeam(JSON.parse(await file.text()));
   battleConfig.own = units.map(({type, x, y}) => ({type, x, y}));
+  [...new Set(units.map(unit => unit.type))].forEach(type => {
+    const source = units.find(unit => unit.type === type).code;
+    localStorage.setItem(sharedRobotCodeStorageKey(type), source);
+  });
   units.forEach((unit, index) => {
-    localStorage.setItem(robotCodeStorageKey(index, unit.type), unit.code);
+    localStorage.removeItem(robotCodeStorageKey(index, unit.type));
   });
   localStorage.setItem(BATTLE_CONFIG_KEY, JSON.stringify(battleConfig));
 
@@ -1790,12 +1840,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   editor.addEventListener("input", () => {
     if (editingRobotIndex === null) return;
-    robotCodes[editingRobotIndex] = editor.value;
     const type = players[editingRobotIndex].type;
-    localStorage.setItem(
-      robotCodeStorageKey(editingRobotIndex, type),
-      editor.value
-    );
+    applyCodeToOwnType(type, editor.value);
   });
 
   editor.addEventListener("keydown", event => {
@@ -1822,13 +1868,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       const latestSource = await fetchRobotSource(type, true);
       defaultRobotSources[type] = latestSource;
-      robotCodes[index] = latestSource;
-      localStorage.removeItem(robotCodeStorageKey(index, type));
+      ownRobotIndexesOfType(type).forEach(robotIndex => {
+        robotCodes[robotIndex] = latestSource;
+        localStorage.removeItem(robotCodeStorageKey(robotIndex, type));
+      });
+      localStorage.removeItem(sharedRobotCodeStorageKey(type));
 
       if (editingRobotIndex === index) {
         editor.value = latestSource;
         document.getElementById("battleStatus").textContent =
-          `自機${index + 1}の初期コードを読み直しました。`;
+          `${robotTypeLabels[type]}の自機すべてを初期コードに戻しました。`;
       }
     } catch (error) {
       document.getElementById("battleStatus").textContent = error.message;
