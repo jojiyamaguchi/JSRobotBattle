@@ -160,6 +160,59 @@
   .code-editor[hidden] {
     display: none;
   }
+  .type-change-dialog {
+    width: min(calc(100% - 32px), 420px);
+    padding: 0;
+    border: 1px solid #c9d0c4;
+    border-radius: 18px;
+    color: #202124;
+    background: white;
+    box-shadow: 0 18px 60px rgba(25, 31, 23, 0.28);
+  }
+  .type-change-dialog::backdrop {
+    background: rgba(25, 31, 23, 0.45);
+  }
+  .type-change-dialog-body {
+    padding: 18px;
+  }
+  .type-change-dialog h2,
+  .type-change-dialog p {
+    margin: 0;
+  }
+  .type-change-description {
+    margin-top: 6px !important;
+    color: #5d6658;
+    font-size: 13px;
+  }
+  .type-change-options {
+    display: grid;
+    gap: 8px;
+    margin: 16px 0;
+  }
+  .type-change-option {
+    min-height: 46px;
+    padding: 8px 14px;
+    border: 1px solid #b9c0b4;
+    border-radius: 12px;
+    color: #35402f;
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+    background: #f7f8f5;
+    cursor: pointer;
+  }
+  .type-change-option.current {
+    border-color: #e88124;
+    color: #8b4811;
+    background: #fff2e5;
+  }
+  .type-change-option:disabled {
+    cursor: default;
+  }
+  .type-change-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
   .code-editor {
     margin-top: 16px;
     padding: 16px;
@@ -284,6 +337,19 @@
   </div>
 
   <canvas id="battlefield" width="400" height="600"></canvas>
+
+  <dialog id="typeChangeDialog" class="type-change-dialog" aria-labelledby="typeChangeTitle">
+    <div class="type-change-dialog-body">
+      <p class="code-editor-kicker">TYPE CHANGE</p>
+      <h2 id="typeChangeTitle">1号機のタイプチェンジ</h2>
+      <p class="type-change-description">アンロック済みのタイプから選べます。</p>
+      <div id="typeChangeOptions" class="type-change-options"></div>
+      <div class="type-change-dialog-actions">
+        <button id="closeTypeChangeDialog" class="secondary-button" type="button">閉じる</button>
+      </div>
+    </div>
+  </dialog>
+
   <section id="codeEditorPanel" class="code-editor" hidden>
     <header class="code-editor-header">
       <div>
@@ -336,6 +402,7 @@ let endMessageShown = false;
 let battleState = "loading";
 let selectedRobotIndex = null;
 let editingRobotIndex = null;
+let changingRobotIndex = null;
 let robotCodes = [];
 let defaultRobotSources = {};
 let workerObjectUrls = [];
@@ -824,6 +891,7 @@ async function loadTeamFile(file) {
   ];
   selectedRobotIndex = null;
   closeCodeEditor();
+  closeTypeChangeDialog();
   renderRoster();
   prepareBattle();
 }
@@ -1339,10 +1407,20 @@ function drawGun(ctx, player) {
 
 function getNoteIconBounds(player) {
   return {
-    x: player.x + 15,
+    x: player.x > battlefieldWidth - 45 ? player.x - 40 : player.x + 15,
     y: player.y - 38,
     width: 25,
     height: 30
+  };
+}
+
+function getTypeChangeIconBounds(player) {
+  const note = getNoteIconBounds(player);
+  return {
+    x: note.x,
+    y: note.y + note.height + 4,
+    width: 25,
+    height: 24
   };
 }
 
@@ -1383,6 +1461,25 @@ function drawNoteIcon(player) {
   ctx.restore();
 }
 
+function drawTypeChangeIcon(player) {
+  const icon = getTypeChangeIconBounds(player);
+  ctx.save();
+  ctx.shadowColor = 'rgba(28, 34, 26, 0.25)';
+  ctx.shadowBlur = 5;
+  ctx.fillStyle = '#fff2e5';
+  ctx.strokeStyle = '#9a541b';
+  ctx.lineWidth = 1.5;
+  ctx.fillRect(icon.x, icon.y, icon.width, icon.height);
+  ctx.strokeRect(icon.x, icon.y, icon.width, icon.height);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#9a541b';
+  ctx.font = 'bold 19px system-ui';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('↻', icon.x + icon.width / 2, icon.y + icon.height / 2 + 1);
+  ctx.restore();
+}
+
 function drawReadySelection(player, index) {
   if (battleState !== "ready" || index !== selectedRobotIndex || index >= 3) return;
 
@@ -1396,6 +1493,9 @@ function drawReadySelection(player, index) {
   ctx.restore();
 
   drawNoteIcon(player);
+  if (sniperTutorialStep === null) {
+    drawTypeChangeIcon(player);
+  }
 }
 
 function updateBattleControls() {
@@ -1417,9 +1517,110 @@ function closeCodeEditor() {
   document.getElementById("codeEditorPanel").hidden = true;
 }
 
+function closeTypeChangeDialog() {
+  changingRobotIndex = null;
+  const dialog = document.getElementById("typeChangeDialog");
+  if (dialog.open) dialog.close();
+}
+
+async function changeRobotType(index, type) {
+  if (
+    battleState !== "ready" ||
+    index < 0 ||
+    index >= 3 ||
+    !isRobotUnlocked(type)
+  ) return;
+
+  const previousType = battleConfig.own[index].type;
+  if (previousType === type) {
+    closeTypeChangeDialog();
+    document.getElementById("battleStatus").textContent =
+      `${index + 1}号機はすでに${robotTypeLabels[type]}です。`;
+    return;
+  }
+
+  const optionButtons = document.querySelectorAll(".type-change-option");
+  optionButtons.forEach(button => {
+    button.disabled = true;
+  });
+
+  try {
+    const matchingIndex = battleConfig.own.findIndex(
+      (unit, unitIndex) => unitIndex !== index && unit.type === type
+    );
+
+    if (!defaultRobotSources[type]) {
+      defaultRobotSources[type] = await fetchRobotSource(type);
+    }
+
+    let source = matchingIndex >= 0 ? robotCodes[matchingIndex] : null;
+    if (source == null) {
+      source = localStorage.getItem(sharedRobotCodeStorageKey(type));
+    }
+    if (source == null) {
+      for (let robotIndex = 0; robotIndex < 3; robotIndex++) {
+        source = localStorage.getItem(robotCodeStorageKey(robotIndex, type));
+        if (source !== null) {
+          localStorage.setItem(sharedRobotCodeStorageKey(type), source);
+          break;
+        }
+      }
+    }
+    source ??= defaultRobotSources[type];
+
+    battleConfig.own[index].type = type;
+    players[index].type = type;
+    robotCodes[index] = source;
+    localStorage.setItem(BATTLE_CONFIG_KEY, JSON.stringify(battleConfig));
+
+    renderRoster();
+    closeCodeEditor();
+    closeTypeChangeDialog();
+    drawGame();
+    document.getElementById("battleStatus").textContent =
+      `${index + 1}号機を${robotTypeLabels[type]}に変更しました。`;
+  } catch (error) {
+    document.getElementById("battleStatus").textContent = error.message;
+    optionButtons.forEach(button => {
+      button.disabled = false;
+    });
+  }
+}
+
+function openTypeChangeDialog(index) {
+  if (battleState !== "ready" || index < 0 || index >= 3) return;
+
+  changingRobotIndex = index;
+  closeCodeEditor();
+
+  const currentType = battleConfig.own[index].type;
+  document.getElementById("typeChangeTitle").textContent =
+    `${index + 1}号機のタイプチェンジ`;
+
+  const options = Object.keys(robotTypeLabels)
+    .filter(type => isRobotUnlocked(type))
+    .map(type => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "type-change-option";
+      button.textContent = robotTypeLabels[type];
+      if (type === currentType) {
+        button.classList.add("current");
+        button.textContent += "（現在）";
+      }
+      button.addEventListener("click", () => changeRobotType(index, type));
+      return button;
+    });
+  document.getElementById("typeChangeOptions").replaceChildren(...options);
+
+  const dialog = document.getElementById("typeChangeDialog");
+  if (!dialog.open) dialog.showModal();
+}
+
 function openCodeEditor(index) {
   if (battleState !== "ready" || index < 0 || index >= 3) return;
 
+  closeTypeChangeDialog();
   editingRobotIndex = index;
   const player = players[index];
   document.getElementById("codeEditorTitle").textContent =
@@ -1505,12 +1706,22 @@ function handleBattlefieldPointer(event) {
   if (sniperTutorialStep !== null) return;
 
   if (selectedRobotIndex !== null && players[selectedRobotIndex]) {
-    const note = getNoteIconBounds(players[selectedRobotIndex]);
+    const selectedPlayer = players[selectedRobotIndex];
+    const note = getNoteIconBounds(selectedPlayer);
     if (
       x >= note.x && x <= note.x + note.width &&
       y >= note.y && y <= note.y + note.height
     ) {
       openCodeEditor(selectedRobotIndex);
+      return;
+    }
+
+    const typeChange = getTypeChangeIconBounds(selectedPlayer);
+    if (
+      x >= typeChange.x && x <= typeChange.x + typeChange.width &&
+      y >= typeChange.y && y <= typeChange.y + typeChange.height
+    ) {
+      openTypeChangeDialog(selectedRobotIndex);
       return;
     }
   }
@@ -1521,12 +1732,13 @@ function handleBattlefieldPointer(event) {
 
   selectedRobotIndex = hitIndex >= 0 ? hitIndex : null;
   closeCodeEditor();
+  closeTypeChangeDialog();
   drawGame();
 
   const status = document.getElementById("battleStatus");
   status.textContent = hitIndex >= 0
-    ? `自機${hitIndex + 1}を選択しました。ノートをタップするとコードを編集できます。`
-    : "自機をタップするとコードを確認・編集できます。";
+    ? `${hitIndex + 1}号機を選択しました。上のノートでプログラム編集、下の循環矢印でタイプチェンジできます。`
+    : "自機をタップすると、プログラム編集やタイプチェンジができます。";
 }
 
 function easeOutBack(progress) {
@@ -1543,6 +1755,7 @@ function startEntranceAnimation() {
   battleState = "entering";
   selectedRobotIndex = null;
   closeCodeEditor();
+  closeTypeChangeDialog();
   updateBattleControls();
 
   const status = document.getElementById("battleStatus");
@@ -1588,7 +1801,7 @@ function startEntranceAnimation() {
         pendingSniperEditingTutorial = false;
         startSniperEditingTutorial();
       } else {
-        status.textContent = "準備完了。自機をタップするとコードを確認・編集できます。";
+        status.textContent = "準備完了。自機をタップすると、プログラム編集やタイプチェンジができます。";
       }
       return;
     }
@@ -1830,6 +2043,7 @@ async function startGame() {
   updateBattleControls();
   selectedRobotIndex = null;
   closeCodeEditor();
+  closeTypeChangeDialog();
   initializeGame();
   await loadPlayers();
   battleState = "running";
@@ -1999,6 +2213,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   document.getElementById("closeCodeEditor").addEventListener("click", closeCodeEditor);
+  document.getElementById("closeTypeChangeDialog").addEventListener(
+    "click",
+    closeTypeChangeDialog
+  );
 
   document.getElementById("resetRobotCode").addEventListener("click", async event => {
     if (editingRobotIndex === null) return;
