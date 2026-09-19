@@ -447,6 +447,7 @@ const ENEMY_TEAM_KEY = "progrobots-enemy-team-v1";
 const ENEMY_PROGRESS_KEY = "progrobots-enemy-progress-v1";
 const BATTLE_COUNT_KEY = "progrobots-battle-count-v1";
 const ACHIEVEMENT_UNLOCKS_KEY = "progrobots-achievement-unlocks-v1";
+const SNIPER_TUTORIAL_KEY = "progrobots-sniper-tutorial-seen-v1";
 
 const typeLabels = {
   infighter1: "インファイター Lv1",
@@ -478,6 +479,7 @@ function resetPlayerProgressFromUrl() {
   localStorage.removeItem(BATTLE_COUNT_KEY);
   localStorage.removeItem(ACHIEVEMENT_UNLOCKS_KEY);
   localStorage.removeItem(ENEMY_PROGRESS_KEY);
+  localStorage.removeItem(SNIPER_TUTORIAL_KEY);
 
   url.searchParams.delete("resetProgress");
   history.replaceState(null, "", url);
@@ -488,12 +490,12 @@ const playerProgressWasReset = resetPlayerProgressFromUrl();
 
 const unlockRequirements = {
   infighter1: 0,
-  sniper1: 1,
   infighter2: 3,
   sniper2: 6
 };
 
 const achievementConditions = {
+  sniper1: "相手チームLv1に勝利で解放",
   ninja1: "相手チームLv4に勝利で解放",
   ninja2: "相手チームLv5に勝利で解放"
 };
@@ -507,11 +509,12 @@ function loadAchievementUnlocks() {
   try {
     const saved = JSON.parse(localStorage.getItem(ACHIEVEMENT_UNLOCKS_KEY));
     return {
+      sniper1: saved?.sniper1 === true,
       ninja1: saved?.ninja1 === true,
       ninja2: saved?.ninja2 === true
     };
   } catch {
-    return {ninja1: false, ninja2: false};
+    return {sniper1: false, ninja1: false, ninja2: false};
   }
 }
 
