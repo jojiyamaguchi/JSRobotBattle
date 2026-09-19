@@ -10,6 +10,7 @@ self.onmessage = ({ data }) => {
     return;
   }
 
+  // [ヒント] 射撃に必要なエネルギーは40なので、下の行のenergy >= 100をenergy >= 40に変更するとより早く射撃できるようになります。
   // エネルギーが100以上あるときは射撃する
   if (data.energy >= 100) {
     postMessage({ action: { type: "fire" } });
