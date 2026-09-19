@@ -447,6 +447,7 @@ const ENEMY_TEAM_KEY = "progrobots-enemy-team-v1";
 const ENEMY_PROGRESS_KEY = "progrobots-enemy-progress-v1";
 const BATTLE_COUNT_KEY = "progrobots-battle-count-v1";
 const ACHIEVEMENT_UNLOCKS_KEY = "progrobots-achievement-unlocks-v1";
+const SNIPER_TUTORIAL_KEY = "progrobots-sniper-tutorial-seen-v1";
 
 const typeLabels = {
   infighter1: "インファイター Lv1",
@@ -478,6 +479,7 @@ function resetPlayerProgressFromUrl() {
   localStorage.removeItem(BATTLE_COUNT_KEY);
   localStorage.removeItem(ACHIEVEMENT_UNLOCKS_KEY);
   localStorage.removeItem(ENEMY_PROGRESS_KEY);
+  localStorage.removeItem(SNIPER_TUTORIAL_KEY);
 
   url.searchParams.delete("resetProgress");
   history.replaceState(null, "", url);
