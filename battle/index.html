@@ -438,6 +438,13 @@ const enemyTeamUnlockNotices = {
   5: "相手チームLv5「ファイターズ2」",
   6: "相手チームLv6「シノビーズ2」"
 };
+const enemyTeamUnlockDescriptions = {
+  2: "射撃を得意とするチームです",
+  3: "遠距離、近距離両方対応できるチームです",
+  4: "相手の攻撃をシールドしながら射撃します！",
+  5: "相手の攻撃をシールドしながら接近戦に持ち込みます！",
+  6: "なんと分身の術を使います！"
+};
 const enemyTeamTypes = {
   1: "infighter1",
   2: "sniper1",
@@ -1836,7 +1843,15 @@ function finishGame(message, ownTeamWon = false, isDraw = false) {
   setTimeout(async () => {
     alert(message);
     unlockedItems.forEach(itemName => {
-      alert(`${itemName}がアンロックされました！`);
+      const enemyDescription =
+        unlockedEnemyLevel !== null &&
+        itemName === enemyTeamUnlockNotices[unlockedEnemyLevel]
+          ? enemyTeamUnlockDescriptions[unlockedEnemyLevel]
+          : "";
+      alert(
+        `${itemName}がアンロックされました！` +
+        (enemyDescription ? `\n\n${enemyDescription}` : "")
+      );
       if (itemName === "スナイパーLv1") {
         alert(
           "同じ性能のロボット同士では引き分けになりますね！チーム編成に戻って今解放されたスナイパーを使ってみましょう。"
