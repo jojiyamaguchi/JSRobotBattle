@@ -141,6 +141,14 @@
     gap: 14px;
     flex-wrap: wrap;
   }
+  body.sniper-tutorial-locked .page-nav,
+  body.sniper-tutorial-locked .battle-actions {
+    pointer-events: none;
+    opacity: 0.42;
+  }
+  body.sniper-tutorial-locked .code-editor {
+    pointer-events: none;
+  }
   #startButton:disabled {
     opacity: 0.5;
     cursor: wait;
@@ -327,12 +335,15 @@ let robotCodes = [];
 let defaultRobotSources = {};
 let workerObjectUrls = [];
 let entranceAnimationId = null;
+let pendingSniperEditingTutorial = false;
+let sniperTutorialStep = null;
 
 const BATTLE_CONFIG_KEY = "progrobots-battle-config-v1";
 const BATTLE_COUNT_KEY = "progrobots-battle-count-v1";
 const ENEMY_TEAM_KEY = "progrobots-enemy-team-v1";
 const ENEMY_PROGRESS_KEY = "progrobots-enemy-progress-v1";
 const ACHIEVEMENT_UNLOCKS_KEY = "progrobots-achievement-unlocks-v1";
+const SNIPER_TUTORIAL_KEY = "progrobots-sniper-tutorial-seen-v1";
 const TEAM_FILE_FORMAT = "progrobots-team";
 const TEAM_FILE_VERSION = 1;
 const MAX_TEAM_FILE_SIZE = 512 * 1024;
@@ -1147,7 +1158,7 @@ function updateGame() {
   const teamAAlive = players.slice(0, 3).filter(p => p !== null).length > 0;
   const teamBAlive = players.slice(3, 6).filter(p => p !== null).length > 0;
   if (!teamAAlive && !teamBAlive) {
-    finishGame("引き分け！");
+    finishGame("引き分け！", false, true);
     return;
   } else if (!teamAAlive || !teamBAlive) {
     finishGame(
@@ -1159,7 +1170,7 @@ function updateGame() {
 
   gameTime++;
   if (gameTime / 60 > maxGameTime) {
-    finishGame("引き分け！");
+    finishGame("引き分け！", false, true);
     return;
   }
 
@@ -1349,7 +1360,8 @@ function drawReadySelection(player, index) {
 
 function updateBattleControls() {
   const button = document.getElementById("startButton");
-  const teamFileDisabled = battleState !== "ready";
+  const teamFileDisabled =
+    battleState !== "ready" || sniperTutorialStep !== null;
   button.disabled = teamFileDisabled;
   document.getElementById("saveTeamFile").disabled = teamFileDisabled;
   document.getElementById("loadTeamFile").disabled = teamFileDisabled;
@@ -1378,6 +1390,29 @@ function openCodeEditor(index) {
   panel.scrollIntoView({behavior: "smooth", block: "nearest"});
 }
 
+function startSniperEditingTutorial() {
+  sniperTutorialStep = "selectRobot1";
+  selectedRobotIndex = null;
+  closeCodeEditor();
+  document.body.classList.add("sniper-tutorial-locked");
+  updateBattleControls();
+  drawGame();
+
+  const message =
+    "ロボットのプログラムを編集してみましょう。1号機をタッチしてください。";
+  document.getElementById("battleStatus").textContent = message;
+  alert(message);
+}
+
+function completeSniperEditingTutorial() {
+  localStorage.setItem(SNIPER_TUTORIAL_KEY, "1");
+  sniperTutorialStep = null;
+  document.body.classList.remove("sniper-tutorial-locked");
+  updateBattleControls();
+  document.getElementById("battleStatus").textContent =
+    "プログラムの中に「ヒント」と書かれた場所がないか、調べてみましょう。";
+}
+
 function handleBattlefieldPointer(event) {
   if (battleState !== "ready") return;
 
@@ -1385,6 +1420,49 @@ function handleBattlefieldPointer(event) {
   const rect = canvas.getBoundingClientRect();
   const x = (event.clientX - rect.left) * canvas.width / rect.width;
   const y = (event.clientY - rect.top) * canvas.height / rect.height;
+
+  if (sniperTutorialStep === "selectRobot1") {
+    const player = players[0];
+    const touchedRobot1 =
+      player && Math.hypot(player.x - x, player.y - y) <= robotRadius + 8;
+    if (!touchedRobot1) return;
+
+    selectedRobotIndex = 0;
+    closeCodeEditor();
+    sniperTutorialStep = "openEditor";
+    drawGame();
+
+    const message =
+      "1号機の上にプログラム編集アイコンが表示されましたね。続けて、プログラム編集アイコンをタッチしてください。";
+    document.getElementById("battleStatus").textContent = message;
+    alert(message);
+    return;
+  }
+
+  if (sniperTutorialStep === "openEditor") {
+    const player = players[0];
+    if (!player) return;
+
+    const note = getNoteIconBounds(player);
+    const touchedNote =
+      x >= note.x && x <= note.x + note.width &&
+      y >= note.y && y <= note.y + note.height;
+    if (!touchedNote) return;
+
+    openCodeEditor(0);
+    sniperTutorialStep = "showingEditor";
+    updateBattleControls();
+
+    setTimeout(() => {
+      alert(
+        "これが、プログラム画面です。プログラムの中に「ヒント」と書かれた場所がないか、調べてみましょう"
+      );
+      completeSniperEditingTutorial();
+    }, 250);
+    return;
+  }
+
+  if (sniperTutorialStep !== null) return;
 
   if (selectedRobotIndex !== null && players[selectedRobotIndex]) {
     const note = getNoteIconBounds(players[selectedRobotIndex]);
@@ -1464,8 +1542,14 @@ function startEntranceAnimation() {
       entranceAnimationId = null;
       battleState = "ready";
       updateBattleControls();
-      status.textContent = "準備完了。自機をタップするとコードを確認・編集できます。";
       drawGame();
+
+      if (pendingSniperEditingTutorial) {
+        pendingSniperEditingTutorial = false;
+        startSniperEditingTutorial();
+      } else {
+        status.textContent = "準備完了。自機をタップするとコードを確認・編集できます。";
+      }
       return;
     }
 
@@ -1482,7 +1566,7 @@ function prepareBattle() {
   startEntranceAnimation();
 }
 
-function finishGame(message, ownTeamWon = false) {
+function finishGame(message, ownTeamWon = false, isDraw = false) {
   if (endMessageShown) return;
 
   endMessageShown = true;
@@ -1490,6 +1574,10 @@ function finishGame(message, ownTeamWon = false) {
   battleState = "finished";
   updateBattleControls();
   const unlockedItems = recordBattleCompletion(ownTeamWon);
+  const shouldStartSniperTutorial =
+    isDraw &&
+    localStorage.getItem(ENEMY_TEAM_KEY) === "level2" &&
+    localStorage.getItem(SNIPER_TUTORIAL_KEY) !== "1";
 
   setTimeout(() => {
     alert(message);
@@ -1501,6 +1589,7 @@ function finishGame(message, ownTeamWon = false) {
         );
       }
     });
+    pendingSniperEditingTutorial = shouldStartSniperTutorial;
     prepareBattle();
   }, 0);
 }
