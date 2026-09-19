@@ -366,6 +366,14 @@ const enemyTeamUnlockNotices = {
   5: "相手チームLv5「ファイターズ2」",
   6: "相手チームLv6「シノビーズ2」"
 };
+const enemyTeamTypes = {
+  1: "infighter1",
+  2: "sniper1",
+  3: "ninja1",
+  4: "sniper2",
+  5: "infighter2",
+  6: "ninja2"
+};
 
 function loadEnemyProgress() {
   const savedLevel = Number.parseInt(
@@ -414,6 +422,7 @@ function recordBattleCompletion(ownTeamWon) {
   localStorage.setItem(BATTLE_COUNT_KEY, String(battleCount));
 
   const unlockedItems = [];
+  let unlockedEnemyLevel = null;
   const countUnlock = battleCountUnlockNotices[battleCount];
   if (countUnlock) {
     unlockedItems.push(countUnlock);
@@ -444,10 +453,11 @@ function recordBattleCompletion(ownTeamWon) {
       const nextLevel = defeatedLevel + 1;
       localStorage.setItem(ENEMY_PROGRESS_KEY, String(nextLevel));
       unlockedItems.push(enemyTeamUnlockNotices[nextLevel]);
+      unlockedEnemyLevel = nextLevel;
     }
   }
 
-  return unlockedItems;
+  return {unlockedItems, unlockedEnemyLevel};
 }
 
 const robotPrograms = {
@@ -675,6 +685,31 @@ async function loadRobotCodes() {
     ...battleConfig.own.map(unit => ownCodesByType[unit.type]),
     ...battleConfig.enemy.map(unit => defaultRobotSources[unit.type])
   ];
+}
+
+async function switchToEnemyTeam(level) {
+  const type = enemyTeamTypes[level];
+  if (!type) return;
+
+  const source =
+    defaultRobotSources[type] ?? await fetchRobotSource(type, true);
+  defaultRobotSources[type] = source;
+
+  battleConfig.enemy = [100, 200, 300].map(x => ({
+    type,
+    x,
+    y: 100
+  }));
+  robotCodes = [
+    ...robotCodes.slice(0, 3),
+    source,
+    source,
+    source
+  ];
+
+  localStorage.setItem(ENEMY_TEAM_KEY, `level${level}`);
+  localStorage.setItem(BATTLE_CONFIG_KEY, JSON.stringify(battleConfig));
+  renderRoster();
 }
 
 function downloadTeamJson(teamData) {
@@ -1399,7 +1434,7 @@ function startSniperEditingTutorial() {
   drawGame();
 
   const message =
-    "ロボットのプログラムを編集してみましょう。1号機をタッチしてください。";
+    "引き分けになりましたね。同じタイプのロボットでも勝てるように、ロボットのプログラムを編集してみましょう。1号機をタッチしてください。";
   document.getElementById("battleStatus").textContent = message;
   alert(message);
 }
@@ -1433,7 +1468,7 @@ function handleBattlefieldPointer(event) {
     drawGame();
 
     const message =
-      "1号機の上にプログラム編集アイコンが表示されましたね。続けて、プログラム編集アイコンをタッチしてください。";
+      "1号機の上にプログラム編集アイコンが表示されます。続けて、プログラム編集アイコンをタッチしてください。";
     document.getElementById("battleStatus").textContent = message;
     alert(message);
     return;
@@ -1573,13 +1608,14 @@ function finishGame(message, ownTeamWon = false, isDraw = false) {
   gameRunning = false;
   battleState = "finished";
   updateBattleControls();
-  const unlockedItems = recordBattleCompletion(ownTeamWon);
+  const {unlockedItems, unlockedEnemyLevel} =
+    recordBattleCompletion(ownTeamWon);
   const shouldStartSniperTutorial =
     isDraw &&
     localStorage.getItem(ENEMY_TEAM_KEY) === "level2" &&
     localStorage.getItem(SNIPER_TUTORIAL_KEY) !== "1";
 
-  setTimeout(() => {
+  setTimeout(async () => {
     alert(message);
     unlockedItems.forEach(itemName => {
       alert(`${itemName}がアンロックされました！`);
@@ -1589,6 +1625,15 @@ function finishGame(message, ownTeamWon = false, isDraw = false) {
         );
       }
     });
+
+    if (unlockedEnemyLevel !== null) {
+      try {
+        await switchToEnemyTeam(unlockedEnemyLevel);
+      } catch (error) {
+        document.getElementById("battleStatus").textContent = error.message;
+      }
+    }
+
     pendingSniperEditingTutorial = shouldStartSniperTutorial;
     prepareBattle();
   }, 0);
