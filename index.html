@@ -471,6 +471,21 @@ const TEAM_FILE_VERSION = 1;
 const MAX_TEAM_FILE_SIZE = 512 * 1024;
 const MAX_ROBOT_CODE_SIZE = 100 * 1024;
 
+function resetPlayerProgressFromUrl() {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("resetProgress") !== "1") return false;
+
+  localStorage.removeItem(BATTLE_COUNT_KEY);
+  localStorage.removeItem(ACHIEVEMENT_UNLOCKS_KEY);
+  localStorage.removeItem(ENEMY_PROGRESS_KEY);
+
+  url.searchParams.delete("resetProgress");
+  history.replaceState(null, "", url);
+  return true;
+}
+
+const playerProgressWasReset = resetPlayerProgressFromUrl();
+
 const unlockRequirements = {
   infighter1: 0,
   sniper1: 1,
@@ -1113,6 +1128,10 @@ document.getElementById("startBattle").addEventListener("click", () => {
 
 refreshControls();
 drawField();
+if (playerProgressWasReset) {
+  placementStatus.textContent =
+    "対戦回数とアンロック実績を初期状態に戻しました。保存したチームとコードは残っています。";
+}
 </script>
 </body>
 </html>
