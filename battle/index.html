@@ -436,14 +436,16 @@ const enemyTeamUnlockNotices = {
   3: "相手チームLv3「シノビーズ」",
   4: "相手チームLv4「スナイパーズ2」",
   5: "相手チームLv5「ファイターズ2」",
-  6: "相手チームLv6「シノビーズ2」"
+  6: "相手チームLv6「シノビーズ2」",
+  7: "相手チームLv7「デミゴッド」"
 };
 const enemyTeamUnlockDescriptions = {
   2: "射撃を得意とするチームです",
   3: "遠距離、近距離両方対応できるチームです",
   4: "相手の攻撃をシールドしながら射撃します！",
   5: "相手の攻撃をシールドしながら接近戦に持ち込みます！",
-  6: "なんと分身の術を使います！"
+  6: "なんと分身の術を使います！",
+  7: "味方を誤射せず、攻撃を直前で防ぐ最強のチームです！"
 };
 const enemyTeamTypes = {
   1: "infighter1",
@@ -451,7 +453,8 @@ const enemyTeamTypes = {
   3: "ninja1",
   4: "sniper2",
   5: "infighter2",
-  6: "ninja2"
+  6: "ninja2",
+  7: "demigod"
 };
 
 function loadEnemyProgress() {
@@ -460,12 +463,12 @@ function loadEnemyProgress() {
     10
   );
   return Number.isFinite(savedLevel)
-    ? Math.max(1, Math.min(6, savedLevel))
+    ? Math.max(1, Math.min(7, savedLevel))
     : 1;
 }
 
 function enemyPresetLevel(presetKey) {
-  if (!/^level[1-6]$/.test(presetKey || "")) return null;
+  if (!/^level[1-7]$/.test(presetKey || "")) return null;
   return Number.parseInt(presetKey.replace("level", ""), 10);
 }
 
@@ -490,6 +493,8 @@ let battleCount = loadBattleCount();
 const achievementUnlocks = loadAchievementUnlocks();
 
 function isRobotUnlocked(type) {
+  // デミゴッドは相手チーム専用
+  if (type === "demigod") return false;
   if (type === "ninja1" || type === "ninja2") {
     return achievementUnlocks[type];
   }
@@ -527,7 +532,7 @@ function recordBattleCompletion(ownTeamWon) {
     if (
       defeatedLevel !== null &&
       defeatedLevel === highestUnlockedLevel &&
-      defeatedLevel < 6
+      defeatedLevel < 7
     ) {
       const nextLevel = defeatedLevel + 1;
       localStorage.setItem(ENEMY_PROGRESS_KEY, String(nextLevel));
@@ -545,7 +550,8 @@ const robotPrograms = {
   sniper1: "../robots/sniper-level1.js",
   sniper2: "../robots/sniper-level2.js",
   ninja1: "../robots/ninja-level1.js",
-  ninja2: "../robots/ninja-level2.js"
+  ninja2: "../robots/ninja-level2.js",
+  demigod: "../robots/demigod.js"
 };
 
 const robotTypeLabels = {
@@ -554,7 +560,8 @@ const robotTypeLabels = {
   sniper1: "スナイパー Lv1",
   sniper2: "スナイパー Lv2",
   ninja1: "ニンジャ Lv1",
-  ninja2: "ニンジャ Lv2"
+  ninja2: "ニンジャ Lv2",
+  demigod: "デミゴッド"
 };
 
 const defaultBattleConfig = {
@@ -1039,7 +1046,8 @@ function updateGame() {
           color: p.color,
           size: punchSize,
           dir: p.dir,
-          life: 1,
+          // 次のフレームで命中する短い予備動作を設ける
+          life: 2,
           source: i, // punchを実行したロボットのindex
         });
 
@@ -1128,6 +1136,9 @@ function updateGame() {
 
     // Punchの当たり判定とダメージ処理
     punches.forEach(punch => {
+        // 生成フレームは予備動作。プログラムへ通知した次のフレームで命中する
+        if (punch.life > 1) return;
+
         players.forEach((player, i) => {
             if (i !== punch.source && player) { // punchの本人以外
                 const dx = player.x - punch.x;
