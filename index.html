@@ -459,7 +459,8 @@ const typeLabels = {
   sniper1: "スナイパー Lv1",
   sniper2: "スナイパー Lv2",
   ninja1: "ニンジャ Lv1",
-  ninja2: "ニンジャ Lv2"
+  ninja2: "ニンジャ Lv2",
+  demigod: "デミゴッド"
 };
 
 const robotPrograms = {
@@ -468,7 +469,8 @@ const robotPrograms = {
   sniper1: "robots/sniper-level1.js",
   sniper2: "robots/sniper-level2.js",
   ninja1: "robots/ninja-level1.js",
-  ninja2: "robots/ninja-level2.js"
+  ninja2: "robots/ninja-level2.js",
+  demigod: "robots/demigod.js"
 };
 
 const TEAM_FILE_FORMAT = "progrobots-team";
@@ -525,6 +527,8 @@ const battleCount = loadBattleCount();
 const achievementUnlocks = loadAchievementUnlocks();
 
 function isRobotUnlocked(type) {
+  // デミゴッドは相手チーム専用
+  if (type === "demigod") return false;
   if (Object.hasOwn(achievementConditions, type)) {
     return achievementUnlocks[type];
   }
@@ -566,6 +570,11 @@ const enemyTeamPresets = {
     type: "ninja2",
     description: "ニンジャ Lv2 × 3体"
   },
+  level7: {
+    label: "Lv7 デミゴッド",
+    type: "demigod",
+    description: "デミゴッド × 3体　味方を誤射せず、攻撃を直前で防ぐ最強チーム"
+  },
   custom: {
     label: "カスタム",
     type: null,
@@ -579,7 +588,7 @@ function loadEnemyProgress() {
     10
   );
   return Number.isFinite(savedLevel)
-    ? Math.max(1, Math.min(6, savedLevel))
+    ? Math.max(1, Math.min(7, savedLevel))
     : 1;
 }
 
@@ -762,7 +771,7 @@ function refreshControls() {
   }));
   enemyTeamSelect.value = enemyTeamPreset;
 
-  const nextLevel = highestUnlockedEnemyLevel < 6
+  const nextLevel = highestUnlockedEnemyLevel < 7
     ? highestUnlockedEnemyLevel + 1
     : null;
   const selectedDescription = enemyTeamPresets[enemyTeamPreset].description;
