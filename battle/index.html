@@ -1495,6 +1495,11 @@ function finishGame(message, ownTeamWon = false) {
     alert(message);
     unlockedItems.forEach(itemName => {
       alert(`${itemName}がアンロックされました！`);
+      if (itemName === "スナイパーLv1") {
+        alert(
+          "同じ性能のロボット同士では引き分けになりますね！チーム編成に戻って今解放されたスナイパーを使ってみましょう。"
+        );
+      }
     });
     prepareBattle();
   }, 0);
