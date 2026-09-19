@@ -21,6 +21,10 @@ const MIN_FIRE_DISTANCE = 35;
 const ADVANCE_STEPS_BEFORE_SHOT = 30;
 const ROUTE_WIDTH = 24;
 const SHOT_WIDTH = 14;
+const MELEE_SLOT_DISTANCE = 22;
+const MELEE_ENGAGEMENT_DISTANCE = 30;
+const MELEE_SLOT_REACHED_DISTANCE = 3;
+const PUNCH_HIT_DISTANCE = ROBOT_RADIUS * 2;
 
 let detourDirection = 60;
 let detourFrames = 0;
@@ -49,6 +53,74 @@ function pointOnRoute(point, start, end, width, endMargin = 0) {
   const perpendicular =
     Math.abs(pointX * routeY - pointY * routeX) / routeLength;
   return perpendicular < width;
+}
+
+function distanceBetween(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function relativeAngleTo(data, point) {
+  const absoluteAngle =
+    Math.atan2(point.y - data.y, point.x - data.x) * 180 / Math.PI;
+  return (absoluteAngle - data.dir + 540) % 360 - 180;
+}
+
+function friendlyWouldBeHitByPunch(data, allies) {
+  const angle = data.dir * Math.PI / 180;
+  const punchCenter = {
+    x: data.x + ROBOT_RADIUS * Math.cos(angle),
+    y: data.y + ROBOT_RADIUS * Math.sin(angle)
+  };
+  return allies.some(
+    ally => distanceBetween(ally, punchCenter) < PUNCH_HIT_DISTANCE
+  );
+}
+
+function meleeSlotWouldHitFriendly(slot, target, allies) {
+  const angle = Math.atan2(target.y - slot.y, target.x - slot.x);
+  const punchCenter = {
+    x: slot.x + ROBOT_RADIUS * Math.cos(angle),
+    y: slot.y + ROBOT_RADIUS * Math.sin(angle)
+  };
+  return allies.some(
+    ally => distanceBetween(ally, punchCenter) < PUNCH_HIT_DISTANCE
+  );
+}
+
+function findOpenMeleeSlot(data, target, allies) {
+  // 相手機体の上下左右を、4つの格闘攻撃位置として扱う
+  const candidates = [
+    {x: target.x, y: target.y - MELEE_SLOT_DISTANCE},
+    {x: target.x + MELEE_SLOT_DISTANCE, y: target.y},
+    {x: target.x, y: target.y + MELEE_SLOT_DISTANCE},
+    {x: target.x - MELEE_SLOT_DISTANCE, y: target.y}
+  ];
+
+  const otherRobots = data.players.filter(player => player !== target);
+  return candidates
+    .filter(slot =>
+      slot.x >= ROBOT_RADIUS &&
+      slot.x <= FIELD_WIDTH - ROBOT_RADIUS &&
+      slot.y >= ROBOT_RADIUS &&
+      slot.y <= FIELD_HEIGHT - ROBOT_RADIUS
+    )
+    .filter(slot =>
+      otherRobots.every(
+        robot =>
+          distanceBetween(robot, slot) >= ROBOT_RADIUS * 2 + 4
+      )
+    )
+    .filter(slot => !meleeSlotWouldHitFriendly(slot, target, allies))
+    .map(slot => {
+      const blockers = allies.filter(ally =>
+        pointOnRoute(ally, data, slot, ROUTE_WIDTH, 4)
+      ).length;
+      return {
+        ...slot,
+        score: distanceBetween(data, slot) + blockers * 100
+      };
+    })
+    .sort((a, b) => a.score - b.score)[0] || null;
 }
 
 function chooseDetour(data, blocker) {
@@ -236,6 +308,79 @@ self.onmessage = ({data}) => {
     return;
   }
 
+  const engagedAllies = allies.filter(
+    ally => distanceBetween(ally, target) <= MELEE_ENGAGEMENT_DISTANCE
+  );
+  const friendlyPunchNearTarget = data.punches.some(
+    punch =>
+      punch.color === data.color &&
+      distanceBetween(punch, target) <= PUNCH_HIT_DISTANCE + ROBOT_RADIUS
+  );
+
+  if (engagedAllies.length > 0 || friendlyPunchNearTarget) {
+    const meleeSlot = findOpenMeleeSlot(data, target, allies);
+
+    // 空いている辺がなければ、味方を巻き込む攻撃はせずに待つ
+    if (!meleeSlot) {
+      postMessage({action: {type: "charge"}});
+      return;
+    }
+
+    const distanceToSlot = distanceBetween(data, meleeSlot);
+    if (distanceToSlot > MELEE_SLOT_REACHED_DISTANCE) {
+      // 選んだ辺までの経路に味方がいれば、斜め前方へ迂回する
+      const slotBlocker = allies.find(ally =>
+        pointOnRoute(ally, data, meleeSlot, ROUTE_WIDTH, 4)
+      );
+
+      if (slotBlocker) {
+        if (detourFrames <= 0) chooseDetour(data, slotBlocker);
+        detourFrames--;
+
+        if (canUseRegularAction(data, MOVE_COST)) {
+          postMessage({
+            action: {type: "move", dir: detourDirection}
+          });
+        } else {
+          postMessage({action: {type: "charge"}});
+        }
+        return;
+      }
+
+      detourFrames = 0;
+      const slotAngle = relativeAngleTo(data, meleeSlot);
+      if (Math.abs(slotAngle) > 4) {
+        if (canUseRegularAction(data, TURN_COST)) {
+          postMessage({action: {type: "turn", dir: slotAngle}});
+        } else {
+          postMessage({action: {type: "charge"}});
+        }
+      } else if (canUseRegularAction(data, MOVE_COST)) {
+        postMessage({action: {type: "move", dir: 0}});
+      } else {
+        postMessage({action: {type: "charge"}});
+      }
+      return;
+    }
+
+    // 空いている辺へ到着してから相手だけを狙ってパンチする
+    const meleeAngle = relativeAngleTo(data, target);
+    if (Math.abs(meleeAngle) > 4) {
+      if (canUseRegularAction(data, TURN_COST)) {
+        postMessage({action: {type: "turn", dir: meleeAngle}});
+      } else {
+        postMessage({action: {type: "charge"}});
+      }
+    } else if (friendlyWouldBeHitByPunch(data, allies)) {
+      postMessage({action: {type: "charge"}});
+    } else if (canUseRegularAction(data, PUNCH_COST)) {
+      postMessage({action: {type: "punch"}});
+    } else {
+      postMessage({action: {type: "charge"}});
+    }
+    return;
+  }
+
   const routeBlocker = allies.find(
     ally =>
       ally.distance < target.distance &&
@@ -267,6 +412,8 @@ self.onmessage = ({data}) => {
       } else {
         postMessage({action: {type: "charge"}});
       }
+    } else if (friendlyWouldBeHitByPunch(data, allies)) {
+      postMessage({action: {type: "charge"}});
     } else if (canUseRegularAction(data, PUNCH_COST)) {
       postMessage({action: {type: "punch"}});
     } else {
